@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoC Book — 인터랙티브 Network-on-Chip 교과서</title>
+<meta name="description" content="칩 안의 네트워크(Network-on-Chip)를 토폴로지, 라우팅, 플로우 컨트롤, 라우터 구조, 데드락, 성능 분석까지 브라우저에서 돌아가는 인터랙티브 실험으로 배우는 웹 교과서.">
+<meta property="og:title" content="NoC Book — 인터랙티브 Network-on-Chip 교과서">
+<meta property="og:description" content="29개의 인터랙티브 실험과 브라우저 속 사이클 단위 NoC 시뮬레이터로 배우는 Network-on-Chip.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  .home-main { margin-left: 0; }
+  .stat-row { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 34px; }
+  .stat-row div { font-size: 14px; color: var(--text-soft); background: color-mix(in srgb, var(--bg) 70%, transparent); border-radius: 8px; padding: 2px 6px; }
+  .stat-row b { display: block; font-size: 28px; color: var(--text); font-family: var(--mono); }
+  .path { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 16px; }
+  .path .step { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; }
+  .path .step b { display: block; }
+  .path .step span { color: var(--text-soft); font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+
+<section class="cover">
+  <canvas id="hero" aria-hidden="true"></canvas>
+  <div class="cover-inner">
+    <div class="kicker">AN INTERACTIVE TEXTBOOK</div>
+    <h1>칩 안의 인터넷,<br><span>Network-on-Chip</span></h1>
+    <p class="sub">수백 개의 코어는 어떻게 대화할까요? 토폴로지부터 라우팅, 플로우 컨트롤, 라우터 파이프라인, 데드락, 성능 분석까지 — 읽는 대신 <b>직접 만지며</b> 배우는 NoC 교과서입니다.</p>
+    <div class="cta">
+      <a class="btn primary" href="01-intro.html">1장부터 시작하기 →</a>
+      <a class="btn" href="08-performance.html">🔬 시뮬레이터로 바로 가기</a>
+    </div>
+    <div class="stat-row">
+      <div><b>10</b>장 + 부록</div>
+      <div><b>29</b>개 인터랙티브 실험</div>
+      <div><b>1</b>사이클 단위 NoC 시뮬레이터</div>
+      <div><b>0</b>설치 필요</div>
+    </div>
+  </div>
+</section>
+
+<div class="home">
+  <h2>이 책에서 배우는 것</h2>
+  <div class="feature-row">
+    <div class="feature"><b>🧭 눈으로 보는 개념</b><span>홉 거리, 채널 부하, 버퍼 점유를 색과 움직임으로 보여줍니다.</span></div>
+    <div class="feature"><b>🎛 손으로 바꾸는 파라미터</b><span>슬라이더를 움직이면 수식과 그래프가 즉시 따라옵니다.</span></div>
+    <div class="feature"><b>💥 일부러 망가뜨리기</b><span>데드락을 직접 만들고, 그 원인이 되는 순환 대기를 찾아냅니다.</span></div>
+    <div class="feature"><b>📈 진짜 시뮬레이션</b><span>브라우저 안의 사이클 단위 시뮬레이터로 지연–처리량 곡선을 측정합니다.</span></div>
+  </div>
+
+  <h2 style="margin-top:48px">목차</h2>
+  <div class="cards" id="cards"></div>
+
+  <h2 style="margin-top:56px">추천 학습 경로</h2>
+  <div class="path">
+    <div class="step"><b>처음이라면</b><span>1 → 2 → 3 → 4장을 순서대로. 각 장 끝의 확인 문제를 풀어 보세요.</span></div>
+    <div class="step"><b>컴퓨터 구조 수업 복습</b><span>3장(Turn model) → 6장(데드락) → 8장(시뮬레이터)로 핵심만.</span></div>
+    <div class="step"><b>하드웨어 설계자</b><span>5장(라우터 파이프라인) → 7장(할당기) → 9장(에너지·bufferless).</span></div>
+    <div class="step"><b>그냥 놀고 싶다면</b><span>8장 라이브 시뮬레이터에서 주입률을 끝까지 올려 보세요.</span></div>
+  </div>
+</div>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/noc.js"></script>
+<script>
+NB.ready(function () {
+  // ----- chapter cards with small SVG thumbnails
+  const thumbs = {
+    '01': '<g stroke="var(--c3)" stroke-width="4"><path d="M30 70 H270"/></g><g fill="var(--surface)" stroke="var(--node-stroke)" stroke-width="2">' + [40, 90, 140, 190, 240].map((x) => '<rect x="' + (x - 14) + '" y="28" width="28" height="22" rx="4"/><path d="M' + x + ' 50 V70"/>').join('') + '</g><g fill="var(--c2)"><circle cx="150" cy="70" r="7"/></g><g stroke="var(--link)" stroke-width="2">' + [60, 120, 180, 240].map((x) => '<path d="M' + x + ' 100 H' + (x + 40) + '"/>').join('') + '</g>',
+    '02': (() => { let s = '<g stroke="var(--link)" stroke-width="2">'; for (let i = 0; i < 5; i++) { s += '<path d="M60 ' + (20 + i * 25) + ' H240"/><path d="M' + (60 + i * 45) + ' 20 V120"/>'; } s += '</g><g fill="var(--surface)" stroke="var(--node-stroke)" stroke-width="1.5">'; for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) { const d = Math.abs(i - 2) + Math.abs(j - 2); s += '<rect x="' + (52 + i * 45) + '" y="' + (12 + j * 25) + '" width="16" height="16" rx="4" fill="' + ['var(--accent)', 'var(--c6)', 'var(--c2)', 'var(--c7)', 'var(--c3)'][d] + '"/>'; } return s + '</g>'; })(),
+    '03': (() => { let s = '<g stroke="var(--link)" stroke-width="1.5">'; for (let i = 0; i < 6; i++) { s += '<path d="M50 ' + (15 + i * 22) + ' H250"/><path d="M' + (50 + i * 40) + ' 15 V125"/>'; } return s + '</g><path d="M50 125 H170 V15 H250" fill="none" stroke="var(--accent)" stroke-width="5"/><path d="M50 125 V59 H210 V15 H250" fill="none" stroke="var(--c3)" stroke-width="4" stroke-dasharray="6 5"/><circle cx="50" cy="125" r="8" fill="var(--c2)"/><circle cx="250" cy="15" r="8" fill="var(--c3)"/>'; })(),
+    '04': (() => { let s = ''; for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) s += '<rect x="' + (40 + (r * 2 + c) * 22) + '" y="' + (18 + r * 28) + '" width="20" height="22" rx="3" fill="var(--c1)" opacity="' + (1 - c * 0.15) + '"/>'; return s; })(),
+    '05': '<rect x="40" y="20" width="60" height="100" rx="8" fill="none" stroke="var(--node-stroke)" stroke-width="2"/><rect x="120" y="20" width="60" height="100" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/><rect x="200" y="20" width="60" height="100" rx="8" fill="none" stroke="var(--node-stroke)" stroke-width="2"/>' + [0, 1, 2, 3].map((i) => '<rect x="48" y="' + (30 + i * 22) + '" width="44" height="14" rx="3" fill="var(--c' + (i + 1) + ')" opacity=".75"/>').join('') + '<path d="M120 40 C150 40,150 100,180 100 M120 70 C150 70,150 40,180 40" stroke="var(--accent)" stroke-width="3" fill="none"/>',
+    '06': '<g stroke="var(--danger)" stroke-width="5" fill="none"><path d="M110 40 H190"/><path d="M190 40 V100"/><path d="M190 100 H110"/><path d="M110 100 V40"/></g><g fill="var(--surface)" stroke="var(--node-stroke)" stroke-width="2"><rect x="92" y="22" width="36" height="36" rx="6"/><rect x="172" y="22" width="36" height="36" rx="6"/><rect x="172" y="82" width="36" height="36" rx="6"/><rect x="92" y="82" width="36" height="36" rx="6"/></g><text x="150" y="76" text-anchor="middle" font-size="22" fill="var(--danger)">⟳</text>',
+    '07': (() => { let s = ''; for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) { const g = [[0, 1], [1, 3], [2, 0], [3, 4], [4, 2]].some(([a, b]) => a === i && b === j); s += '<rect x="' + (85 + j * 26) + '" y="' + (8 + i * 25) + '" width="22" height="21" rx="4" fill="' + (g ? 'var(--accent-2)' : 'var(--surface)') + '" stroke="var(--border-strong)"/>'; } return s; })(),
+    '08': '<path d="M40 120 H270 M40 120 V15" stroke="var(--text-mute)" stroke-width="1.5"/><path d="M40 100 C140 98,180 90,205 70 S235 22,240 15" stroke="var(--c1)" stroke-width="4" fill="none"/><path d="M40 92 C120 90,150 80,170 60 S190 20,195 15" stroke="var(--c3)" stroke-width="4" fill="none"/>',
+    '09': '<g transform="translate(150 72) skewY(-12)"><rect x="-90" y="-10" width="120" height="50" fill="var(--c1)" opacity=".18" stroke="var(--c1)"/><rect x="-60" y="-40" width="120" height="50" fill="var(--c4)" opacity=".18" stroke="var(--c4)"/><rect x="-30" y="-70" width="120" height="50" fill="var(--c2)" opacity=".18" stroke="var(--c2)"/></g>',
+    'A': '<g font-family="var(--mono)" font-size="15" fill="var(--text-soft)"><text x="40" y="40">flit · phit · VC</text><text x="40" y="70">T₀ = H·tᵣ + L/b</text><text x="40" y="100">Θ = 1 / γ_max</text></g>'
+  };
+  const box = document.getElementById('cards');
+  NB.CHAPTERS.slice(1).forEach((c) => {
+    const a = NB.el('a', { class: 'card', href: c.file });
+    a.innerHTML = '<div class="thumb"><svg viewBox="0 0 300 140" preserveAspectRatio="xMidYMid meet">' + (thumbs[c.num] || '') + '</svg></div><div class="body"><div class="num">' + (c.num === 'A' ? 'APPENDIX' : 'CHAPTER ' + c.num) + '</div><h3>' + c.title + '</h3><p>' + c.desc + '</p></div>';
+    box.append(a);
+  });
+
+  // ----- hero: a live NoC simulation in the background
+  const cv = document.getElementById('hero');
+  const ctx = cv.getContext('2d');
+  let sim, W = 0, H = 0, acc = 0;
+  function size() {
+    const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width; H = r.height;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const kx = Math.max(6, Math.min(16, Math.round(W / 85))), ky = Math.max(4, Math.round(H / 85));
+    if (!sim || sim.geo.kx !== kx || sim.geo.ky !== ky) sim = new NB.noc.Sim({ kx, ky, rate: 0.12, vcs: 2, depth: 4, pktLen: 4, routing: 'oddeven', traffic: 'uniform', record: true, seed: 5 });
+  }
+  size();
+  window.addEventListener('resize', size);
+  for (let i = 0; i < 150; i++) sim.step();
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function frame() {
+    ctx.save();
+    ctx.globalAlpha = NB.isDark() ? 0.4 : 0.3;
+    NB.noc.render(ctx, sim, { w: W, h: H, frac: acc, labels: false, showQueue: false });
+    ctx.restore();
+  }
+  NB.loop(cv, (dt) => {
+    if (!reduce) { acc += dt * 6; while (acc >= 1) { acc -= 1; sim.step(); } }
+    frame();
+  });
+});
+</script>
+</body>
+</html>

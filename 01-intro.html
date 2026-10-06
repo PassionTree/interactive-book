@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01. 왜 Network-on-Chip인가 — NoC Book</title>
+<meta name="description" content="공유 버스와 크로스바의 한계, 와이어 지연, 그리고 칩 위의 패킷 네트워크가 등장한 이유를 인터랙티브 실험으로 살펴봅니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="1">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 01</div>
+  <h1>왜 Network-on-Chip인가</h1>
+  <p class="lead">코어가 2개일 때는 전선 몇 가닥으로 충분했습니다. 코어가 64개, 128개가 되자 칩 안의 "도로망"이 성능과 전력을 좌우하기 시작했습니다. 이 장에서는 공유 버스가 왜 무너지는지, 그리고 왜 칩 설계자들이 <b>전선 대신 패킷을 라우팅</b>하기로 했는지 실험으로 확인합니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 20분</span><span class="pill">🧪 실험 4개</span><span class="pill">선수지식: 디지털 회로 기초</span></div>
+</header>
+
+<h2 id="problem">칩 안의 통신 문제</h2>
+<p>현대의 SoC(System-on-Chip)에는 CPU 코어, GPU, NPU, DSP, 메모리 컨트롤러, 캐시 슬라이스, I/O 블록 등 수십~수백 개의 <span class="term">IP 블록</span>이 들어 있습니다. 이 블록들은 끊임없이 데이터를 주고받습니다. 캐시 미스가 나면 요청이 L3 슬라이스로, 다시 메모리 컨트롤러로 가고, 일관성(coherence) 프로토콜은 다른 코어의 캐시에 무효화 메시지를 보냅니다.</p>
+<p>트랜지스터는 공정이 미세화될수록 빨라지고 작아지지만, <b>전선(wire)</b>은 그렇지 않습니다. 단면적이 줄어드는 전선의 저항은 오히려 커지고, 칩 전체를 가로지르는 긴 전선의 지연은 클록 주기 여러 개에 달합니다. 결국 "계산"보다 "통신"이 병목이 되는 시대가 왔고, 2000년대 초 연구자들은 칩 안에도 컴퓨터 네트워크처럼 <b>패킷을 라우팅</b>하는 구조를 제안했습니다<span class="eng"> (Dally &amp; Towles, “Route Packets, Not Wires”, DAC 2001; Benini &amp; De Micheli, IEEE Computer 2002)</span>. 이것이 <span class="term">Network-on-Chip (NoC)</span>입니다.</p>
+
+<div class="widget wide" id="w-interconnect" data-title="같은 칩, 세 가지 연결 방식: Bus · Crossbar · Mesh NoC">
+  <div class="foot">코어 수를 늘려 보세요. 버스는 전선이 적지만 한 번에 하나의 전송만 가능하고, 크로스바는 동시 전송이 가능하지만 스위치 수가 N²으로 폭증합니다. Mesh NoC는 라우터 수가 N에 비례하면서도 다수의 전송이 동시에 진행됩니다. <b>동시 전송 수</b>는 무작위 목적지 트래픽에서의 대략적인 값입니다.</div>
+</div>
+
+<h2 id="bus">공유 버스의 한계</h2>
+<p>가장 단순한 연결은 <span class="term">공유 버스(shared bus)</span>입니다. 모든 마스터(코어)가 하나의 전선 묶음을 공유하고, 중재기(arbiter)가 매 순간 하나의 마스터에게만 사용권을 줍니다. 구현이 쉽고 모든 참여자가 모든 트랜잭션을 "엿들을" 수 있어 스누핑 기반 캐시 일관성에도 편리합니다.</p>
+<p>문제는 <b>대역폭이 고정</b>되어 있다는 점입니다. 마스터가 N개면 각자가 쓸 수 있는 대역폭은 평균 1/N로 줄어듭니다. 게다가 버스에 매달린 장치가 많아질수록 전선이 길어지고 부하 용량(capacitance)이 커져 클록 속도마저 떨어집니다. 아래 실험에서 마스터 수와 요청률을 바꿔 보세요.</p>
+
+<div class="widget" id="w-bus" data-title="공유 버스 경합 시뮬레이션">
+  <div class="foot">각 마스터는 매 사이클 확률 p로 요청을 만들고, 한 전송은 버스를 4사이클 점유합니다. 총 요청률 N·p·4가 1을 넘는 순간 대기열이 끝없이 길어집니다 — 이것이 <b>포화(saturation)</b>입니다. 중재 방식은 라운드 로빈입니다.</div>
+</div>
+
+<div class="callout note">
+  <div class="callout-title">ℹ️ 크로스바는 어떨까?</div>
+  <p>크로스바는 N개의 입력과 N개의 출력을 임의로 연결할 수 있어 서로 다른 목적지로 가는 전송이 동시에 일어날 수 있습니다. 하지만 교차점(crosspoint)이 N²개이고, 전선 길이도 N에 비례해 늘어나므로 면적과 전력이 대략 N²으로 증가합니다. 그래서 크로스바는 라우터 <i>내부</i>처럼 포트 수가 작은 곳(5×5 정도)에 쓰입니다. 5장에서 자세히 다룹니다.</p>
+</div>
+
+<h2 id="wires">전선은 느리다: 와이어 지연</h2>
+<p>전선은 단위 길이당 저항 \(r\)과 커패시턴스 \(c\)를 가진 분산 RC 회로입니다. 리피터(버퍼) 없이 길이 \(\ell\)인 전선을 구동하면 Elmore 지연은 길이의 <b>제곱</b>에 비례합니다.</p>
+<div class="formula">$$t_{\text{wire}} \approx 0.38\, r\, c\, \ell^2 \qquad\text{(리피터 없음)}$$
+<span class="caption">분산 RC 선로의 50% 지연 근사</span></div>
+<p>일정 간격마다 리피터를 넣으면 지연이 길이에 <b>선형</b>으로 비례하도록 만들 수 있지만, 리피터 자체가 면적과 전력을 소비합니다. 중요한 점은 리피터를 넣어도 칩 한쪽 끝에서 반대쪽 끝까지 신호를 보내는 데 여러 클록 사이클이 걸린다는 것입니다. 그렇다면 긴 전선을 <b>파이프라인화</b>해야 하고, 짧은 링크와 레지스터(라우터)를 번갈아 놓는 NoC 구조는 이 요구에 자연스럽게 맞습니다.</p>
+
+<div class="widget" id="w-wire" data-title="전선 길이와 지연: 리피터의 효과">
+  <div class="foot">값은 개념을 보여주기 위한 정규화된 모델입니다(실제 수치는 공정, 금속층, 폭/간격에 따라 크게 다릅니다). 핵심은 <b>곡선의 모양</b>입니다: 리피터가 없으면 제곱, 있으면 선형. 점선은 한 클록 주기 동안 신호가 갈 수 있는 거리입니다.</div>
+</div>
+
+<h2 id="anatomy">NoC의 구성 요소</h2>
+<p>NoC는 크게 세 가지 부품으로 이루어집니다.</p>
+<ul>
+  <li><span class="term">네트워크 인터페이스(NI)</span> — IP 블록의 트랜잭션(예: AXI 읽기 요청)을 <b>패킷</b>으로 바꾸고(packetization), 도착한 패킷을 다시 트랜잭션으로 복원합니다.</li>
+  <li><span class="term">라우터(Router)</span> — 들어온 패킷의 목적지를 보고 어느 출력 포트로 보낼지 결정하고(라우팅), 여러 패킷이 같은 출력을 원하면 순서를 정하며(중재), 잠시 보관합니다(버퍼).</li>
+  <li><span class="term">링크(Link)</span> — 라우터와 라우터를 잇는 점대점(point-to-point) 전선 묶음. 짧고 규칙적이라 전기적 특성을 예측하기 쉽습니다.</li>
+</ul>
+<p>아래 그림에서 각 부품 위에 마우스를 올리거나, <b>다음 단계</b>를 눌러 하나의 읽기 요청이 코어에서 메모리 컨트롤러까지 가는 여정을 따라가 보세요.</p>
+
+<div class="widget wide" id="w-journey" data-title="패킷의 여정: 코어 → NI → 라우터 → … → 메모리 컨트롤러">
+  <div class="foot">각 라우터에서 패킷은 "어디로 갈까(라우팅) → 출력 포트를 차지할 수 있나(중재) → 다음 라우터에 자리가 있나(플로우 컨트롤)"의 세 질문에 답하고 이동합니다. 이 세 질문이 이 책의 3·4·5·7장입니다.</div>
+</div>
+
+<h2 id="design-space">NoC 설계 공간 한눈에 보기</h2>
+<p>NoC를 설계한다는 것은 다음 네 가지 축의 선택을 조합하는 일입니다. 이 책의 각 장이 각각의 축을 다룹니다.</p>
+<div class="table-wrap">
+<table class="data">
+  <tr><th>설계 축</th><th>질문</th><th>대표적 선택지</th><th>장</th></tr>
+  <tr><td><b>토폴로지</b></td><td>라우터를 어떤 모양으로 연결할까?</td><td>Ring, Mesh, Torus, Butterfly, Fat-tree, Flattened Butterfly</td><td><a href="02-topology.html">2장</a></td></tr>
+  <tr><td><b>라우팅</b></td><td>출발지에서 목적지까지 어떤 경로로 갈까?</td><td>XY(DOR), Turn model, Odd-Even, Valiant, Adaptive</td><td><a href="03-routing.html">3장</a></td></tr>
+  <tr><td><b>플로우 컨트롤</b></td><td>버퍼와 링크를 언제, 누구에게 줄까?</td><td>Store-and-forward, Virtual cut-through, Wormhole, Credit, VC</td><td><a href="04-flow-control.html">4장</a>, <a href="06-deadlock.html">6장</a></td></tr>
+  <tr><td><b>라우터 구조</b></td><td>위의 결정을 하드웨어로 얼마나 빠르게 할까?</td><td>파이프라인 단계, 크로스바, 할당기, 투기(speculation), 바이패스</td><td><a href="05-router.html">5장</a>, <a href="07-allocation.html">7장</a></td></tr>
+</table>
+</div>
+<p>마지막으로 <a href="08-performance.html">8장</a>에서는 이 모든 선택을 조합한 <b>사이클 단위 NoC 시뮬레이터</b>를 직접 돌려 보며 지연시간–처리량 곡선을 그려 봅니다.</p>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>공유 버스는 동시에 하나의 전송만 허용해 코어 수가 늘수록 코어당 대역폭이 1/N로 줄어든다.</li>
+    <li>크로스바는 동시 전송이 가능하지만 비용이 N²으로 증가해 큰 시스템 전체를 연결하기 어렵다.</li>
+    <li>긴 전선의 지연은 리피터 없이 길이의 제곱으로 증가한다. 짧은 링크를 파이프라인화하는 NoC는 이 물리적 한계에 잘 맞는다.</li>
+    <li>NoC = 네트워크 인터페이스 + 라우터 + 링크. 설계 공간은 토폴로지·라우팅·플로우 컨트롤·라우터 구조로 나뉜다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="2">
+  <div class="q">64개의 마스터가 공유 버스를 쓰고, 각 마스터가 매 사이클 2% 확률로 4사이클짜리 전송을 요청한다면?</div>
+  <div class="opts">
+    <button class="opt">버스 이용률은 약 50%로 여유가 있다.</button>
+    <button class="opt">버스 이용률은 정확히 100%로 안정적이다.</button>
+    <button class="opt">요청 부하가 64×0.02×4 = 5.12로 1을 넘으므로 대기열이 무한히 커진다.</button>
+  </div>
+  <div class="exp">오프라인 부하(offered load) ρ = N·p·T = 64 × 0.02 × 4 = 5.12. ρ &gt; 1이면 서버(버스)가 감당할 수 있는 양보다 많은 일이 들어오므로 대기열이 계속 증가합니다.</div>
+</div>
+<div class="quiz" data-answer="1">
+  <div class="q">리피터가 없는 전선의 길이를 2배로 늘리면 지연은 대략 몇 배가 될까?</div>
+  <div class="opts">
+    <button class="opt">2배</button>
+    <button class="opt">4배</button>
+    <button class="opt">변화 없음</button>
+  </div>
+  <div class="exp">분산 RC 지연은 \(r c \ell^2\)에 비례하므로 길이가 2배면 지연은 약 4배입니다. 리피터를 최적으로 삽입하면 선형(2배)에 가까워집니다.</div>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/noc.js"></script>
+<script src="assets/js/ch01.js"></script>
+</body>
+</html>

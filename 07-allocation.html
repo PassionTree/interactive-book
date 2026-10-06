@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07. 중재와 할당 — NoC Book</title>
+<meta name="description" content="고정 우선순위, 라운드 로빈, 매트릭스 중재기와 분리형(separable), 웨이브프론트 할당기를 직접 돌려 보며 공정성과 매칭 효율을 비교합니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="7">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 07</div>
+  <h1>중재와 할당</h1>
+  <p class="lead">라우터에서는 매 사이클 수십 개의 요청이 몇 개의 자원을 두고 경쟁합니다. 누구에게 줄지 정하는 회로가 <b>중재기(arbiter)</b>와 <b>할당기(allocator)</b>입니다. 이 회로는 공정해야 하고(굶주림 없이), 효율적이어야 하며(자원을 놀리지 않고), 무엇보다 <b>한 클록 안에</b> 끝나야 합니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 25분</span><span class="pill">🧪 실험 2개</span></div>
+</header>
+
+<h2 id="arbiter">중재기: 하나의 자원, 여러 요청자</h2>
+<p><span class="term">중재기(arbiter)</span>는 \(n\)개의 요청 중 하나에게 자원을 줍니다. 대표적인 방식은 세 가지입니다.</p>
+<ul>
+  <li><b>고정 우선순위(Fixed priority)</b> — 항상 번호가 작은 요청자가 이깁니다. 회로가 가장 단순(우선순위 인코더)하지만, 높은 우선순위 요청자가 계속 요청하면 낮은 쪽은 영원히 기다립니다(<b>기아, starvation</b>).</li>
+  <li><b>라운드 로빈(Round-robin)</b> — 방금 승리한 요청자 다음부터 우선순위를 줍니다. 포인터 하나로 강한 공정성을 얻습니다. NoC에서 가장 흔합니다.</li>
+  <li><b>매트릭스(Matrix) 중재기</b> — \(n\times n\) 우선순위 행렬 \(W\)를 두어, \(w_{ij}=1\)이면 \(i\)가 \(j\)보다 우선합니다. 승자는 행을 0, 열을 1로 바꿔 가장 낮은 우선순위가 됩니다(Least Recently Served). 작은 \(n\)에서 빠르고 공정합니다.</li>
+</ul>
+
+<div class="widget wide" id="w-arb" data-title="중재기 비교: 누가 굶주리는가?">
+  <div class="foot">격자에서 테두리만 있는 칸은 요청했지만 받지 못한 사이클, 채워진 칸은 승인받은 사이클입니다. 고정 우선순위에서 R0의 요청률을 높이면 R2, R3가 거의 승인받지 못합니다. 공정성 지수는 요청 대비 승인 비율에 대한 Jain's fairness index입니다(1 = 완전 공정).</div>
+</div>
+
+<h2 id="allocator">할당기: 여러 자원, 여러 요청자</h2>
+<p>스위치 할당(SA)은 "각 입력은 출력 하나만, 각 출력은 입력 하나만"이라는 제약 아래 요청 행렬에서 <b>매칭</b>을 찾는 문제입니다. 가장 큰 매칭(maximum matching)을 찾는 알고리즘은 한 사이클 안에 하드웨어로 돌리기에는 너무 느립니다. 그래서 실제 라우터는 빠르지만 최적이 아닌 근사 알고리즘을 씁니다.</p>
+<ul>
+  <li><span class="term">분리형(Separable) 할당기</span> — 중재기 두 단을 이어 붙입니다. <b>입력 우선(input-first)</b>은 각 입력이 먼저 출력 하나를 고르고(입력 중재), 그 다음 각 출력이 자신을 고른 입력 중 하나를 고릅니다(출력 중재). 단순하고 빠르지만, 1단계의 선택이 서로 조율되지 않아 출력 충돌로 매칭을 놓칩니다.</li>
+  <li><span class="term">웨이브프론트(Wavefront) 할당기</span> — 요청 행렬의 대각선을 따라 우선순위 "파면"을 쓸어 가며, 행과 열이 아직 비어 있으면 승인합니다. 항상 <b>극대(maximal)</b> 매칭을 만들어 분리형보다 효율이 높지만 지연이 \(O(n)\)입니다.</li>
+  <li><span class="term">반복(iterative) 분리형</span> — iSLIP처럼 분리형 할당을 여러 번 반복해 남은 입력·출력을 채웁니다.</li>
+</ul>
+
+<div class="widget wide" id="w-alloc" data-title="할당기 실험: 요청 행렬에서 매칭 찾기">
+  <div class="foot">왼쪽 행렬의 칸을 클릭해 요청을 켜고 끄세요(행 = 입력 포트, 열 = 출력 포트). 가운데는 분리형 할당기의 1단계 결과, 오른쪽은 최종 승인입니다. 아래 차트는 5×5 할당기에 무작위 요청을 4,000번씩 넣었을 때 최대 매칭 대비 평균 매칭 크기입니다.</div>
+</div>
+
+<h2 id="va-sa">VC 할당과 스위치 할당의 규모</h2>
+<p>\(p\)포트 \(v\)VC 라우터에서 VC 할당기는 최대 \(p\cdot v\)개의 입력 VC가 \(p\cdot v\)개의 출력 VC를 두고 경쟁하는 \(pv \times pv\) 할당 문제입니다. 반면 스위치 할당기는 \(p\times p\) 문제이지만(각 입력 포트에서 VC 하나를 먼저 고른 뒤) 매 사이클 모든 플릿이 거칩니다. 그래서 VA는 크고 느리며, SA는 빈번하고 지연에 민감합니다. 라우팅 함수가 출력 포트 하나만 돌려주면 VA를 출력 포트별 \(v\)개 VC에 대한 문제로 줄일 수 있어 크게 단순해집니다.</p>
+<div class="callout tip">
+  <div class="callout-title">💡 공정성 vs 효율의 미묘함</div>
+  <p>분리형 할당기의 포인터를 "최종 승인된 경우에만" 갱신하는 것이 iSLIP의 핵심 아이디어입니다. 이렇게 하면 부하가 높을 때 포인터들이 자연스럽게 서로 엇갈리게(desynchronize) 되어 매칭 효율이 높아집니다. 반대로 매 사이클 무조건 포인터를 돌리면 모든 입력이 같은 출력을 동시에 고르는 일이 반복될 수 있습니다.</p>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>고정 우선순위 중재기는 단순하지만 기아를 일으킨다. 라운드 로빈과 매트릭스 중재기는 강한 공정성을 보장한다.</li>
+    <li>스위치 할당은 이분 매칭 문제다. 최대 매칭은 너무 느려서 분리형·웨이브프론트 같은 근사 할당기를 쓴다.</li>
+    <li>분리형 할당기는 빠르지만 조율되지 않은 1단계 선택 때문에 매칭을 놓친다. 반복이나 웨이브프론트로 효율을 높인다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="1">
+  <div class="q">입력 0, 1이 모두 출력 0과 1을 요청할 때, 입력 우선 분리형 할당기에서 두 입력의 포인터가 모두 출력 0을 가리키면?</div>
+  <div class="opts">
+    <button class="opt">매칭 크기 2 (최적)</button>
+    <button class="opt">매칭 크기 1 — 두 입력 모두 출력 0을 골라 출력 0만 승인됨</button>
+    <button class="opt">매칭 크기 0</button>
+  </div>
+  <div class="exp">1단계에서 두 입력이 모두 출력 0을 고르므로 2단계에서 출력 0은 하나만 승인하고 출력 1은 아무도 고르지 않았습니다. 최대 매칭은 2인데 1밖에 얻지 못합니다. 할당기 실험에서 이 상황을 직접 만들어 보세요.</div>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/ch07.js"></script>
+</body>
+</html>

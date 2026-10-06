@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06. 가상 채널과 데드락 — NoC Book</title>
+<meta name="description" content="Head-of-Line 블로킹, 라우팅 데드락, 채널 의존성 그래프, Dateline 기법, Escape VC, 프로토콜 데드락을 직접 데드락을 만들어 보며 이해합니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="6">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 06</div>
+  <h1>가상 채널과 데드락</h1>
+  <p class="lead">교차로 네 곳에서 차들이 서로의 꼬리를 물고 서 버리면, 신호가 바뀌어도 아무도 움직일 수 없습니다. 칩 안의 네트워크도 똑같이 멈출 수 있습니다. 이 장에서는 직접 데드락을 일으켜 보고, 가상 채널(VC)로 그것을 막는 방법을 배웁니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 35분</span><span class="pill">🧪 실험 3개</span></div>
+</header>
+
+<h2 id="hol">Head-of-Line 블로킹과 가상 채널</h2>
+<p>입력 포트에 FIFO 버퍼가 하나뿐이면, 맨 앞의 패킷이 혼잡한 출력을 기다리는 동안 뒤의 패킷들은 출력이 비어 있어도 나갈 수 없습니다. 이를 <span class="term">Head-of-Line(HoL) 블로킹</span>이라고 합니다. 입력 큐 스위치에서 균등 트래픽조차 HoL 블로킹 때문에 처리량이 약 58.6%로 제한된다는 고전적인 결과(Karol et al., 1987)가 있습니다.</p>
+<p><span class="term">가상 채널</span>은 같은 버퍼 용량을 여러 개의 독립된 큐로 나눕니다. 막힌 패킷은 자기 VC만 막고, 다른 VC의 패킷은 링크를 계속 쓸 수 있습니다. 아래 실험에서 <b>총 버퍼 크기는 8플릿으로 고정</b>하고 VC 개수만 바꿔 보세요.</p>
+
+<div class="widget wide" id="w-hol" data-title="HoL 블로킹: 같은 버퍼, 다른 VC 개수">
+  <div class="foot">상류 링크에서 출력 A행(항상 비어 있음)과 출력 B행(혼잡: 매 사이클 확률 q로만 받아줌) 2플릿 패킷이 도착 순서대로 들어옵니다. 초록 = A행, 주황 = B행. 새 패킷은 비어 있는 VC가 있어야 들어올 수 있습니다. VC가 1개면 B행 패킷 하나가 맨 앞에서 막힐 때마다 그 뒤의 A행 패킷까지 멈춥니다</div>
+</div>
+
+<h2 id="deadlock">데드락: 순환 대기</h2>
+<p><span class="term">라우팅 데드락</span>은 패킷들이 각자 자원(버퍼/VC)을 붙잡은 채, 다른 패킷이 붙잡은 자원을 순환적으로 기다릴 때 발생합니다. 다음 네 조건이 모두 성립해야 합니다: (1) 자원의 상호 배제, (2) 자원을 가진 채 대기(hold-and-wait), (3) 선점 불가, (4) <b>순환 대기</b>. NoC에서 앞의 셋은 Wormhole 플로우 컨트롤의 본질이므로, 설계자는 넷째 조건 — 순환 — 을 깨야 합니다.</p>
+<p>아래 2×2 메시에서 네 개의 긴 패킷이 각자 "시계 방향으로 먼저 돌기"를 선택하도록 해 보았습니다. 각 라우터 안의 작은 칸들이 입력 VC 버퍼 슬롯이고 색은 패킷입니다.</p>
+
+<div class="widget wide" id="w-dl2" data-title="2×2 메시에서 데드락 만들기">
+  <div class="foot">각 패킷은 6플릿, 버퍼는 VC당 2플릿, VC 1개입니다. '시계 방향 우선'은 모든 패킷이 첫 홉을 시계 방향으로 가도록 강제합니다(최소 경로이므로 합법적인 적응형 선택입니다). 데드락이 감지되면 순환 대기 경로가 빨갛게 표시됩니다. 'XY 라우팅'으로 바꾸면 같은 패킷들이 문제없이 도착합니다.</div>
+</div>
+
+<h2 id="cdg">채널 의존성 그래프 (CDG)</h2>
+<p>Dally와 Seitz(1987)는 데드락 자유를 판정하는 깔끔한 도구를 제시했습니다. 네트워크의 각 채널(VC)을 노드로, "패킷이 채널 \(c_i\)를 점유한 채 \(c_j\)를 요청할 수 있음"을 간선 \(c_i \to c_j\)로 하는 <span class="term">채널 의존성 그래프(Channel Dependency Graph)</span>를 만들면:</p>
+<div class="callout note">
+  <div class="callout-title">정리 (Dally &amp; Seitz)</div>
+  <p>결정적 라우팅에서, 채널 의존성 그래프에 사이클이 없으면 그 라우팅 함수는 데드락이 없다.</p>
+</div>
+<p>3장의 Turn model 검사기가 바로 이 그래프를 만들어 사이클을 찾는 것이었습니다. XY 라우팅에서는 Y→X 회전이 없으므로 의존성이 항상 "X 채널 → Y 채널" 방향으로만 흐르고, 사이클이 생길 수 없습니다.</p>
+
+<figure class="figure">
+<svg class="vis" id="fig-cdg" viewBox="0 0 760 290" style="width:100%;height:auto" role="img" aria-label="링의 채널 의존성 그래프와 dateline"></svg>
+<figcaption>(왼쪽) 4노드 단방향 링: 채널 c0→c1→c2→c3→c0 의존성이 사이클을 이룹니다. (오른쪽) Dateline: 각 채널을 VC 두 개(위: VC0, 아래: VC1)로 나누고, 패킷이 dateline(노드 3→0 링크)을 건너면 VC1을 쓰도록 합니다. 사이클이 나선형으로 풀립니다.</figcaption>
+</figure>
+
+<h2 id="dateline">Torus와 Dateline</h2>
+<p>Ring과 Torus는 토폴로지 자체에 사이클이 있으므로, 회전을 금지하는 것만으로는 부족합니다. 같은 방향으로 링을 도는 패킷들만으로도 순환 대기가 생깁니다. 해결책은 VC를 두 클래스로 나누고, 링의 한 지점(<span class="term">dateline</span>)을 건너는 순간 패킷의 VC 클래스를 0→1로 올리는 것입니다. 최소 라우팅 패킷은 dateline을 두 번 건너지 않으므로 VC1 의존성은 링을 한 바퀴 돌 수 없습니다.</p>
+<p>아래 데드락 실험실에서 다양한 설정을 시험해 보세요. 데드락이 나는 설정과 나지 않는 설정은 무엇이 다를까요?</p>
+
+<div class="widget wide" id="w-lab" data-title="데드락 실험실: Ring · Torus · Mesh">
+  <div class="foot">패킷 6플릿, VC당 버퍼 2플릿, 주입률 0.5 flit/node/cycle의 균등 무작위 트래픽입니다. 데드락은 300사이클 동안 아무 플릿도 움직이지 않을 때 선언하며, 이때 VC 대기 그래프에서 찾은 순환이 빨갛게 표시됩니다. Dateline을 쓰면 VC 2개 중 VC0은 dateline 이전, VC1은 이후 전용이 됩니다.</div>
+</div>
+
+<h2 id="escape">적응형 라우팅과 Escape VC</h2>
+<p>완전 적응형 라우팅은 경로 선택의 자유가 최대지만 그 자체로는 CDG에 사이클이 생깁니다. Duato(1993)는 더 약한 조건으로 충분함을 보였습니다. VC를 두 부류로 나눠, <b>적응형 VC</b>에서는 아무 최소 경로나 쓰되, 막혔을 때 언제든 옮겨 갈 수 있는 데드락 없는 <span class="term">Escape VC</span>(예: XY 라우팅만 허용)를 하나 두면, 적응형 VC들 사이에 순환 의존성이 있어도 전체 네트워크는 데드락이 없습니다. 패킷은 항상 "탈출구"로 빠져나갈 수 있기 때문입니다.</p>
+<p>또 다른 접근은 데드락을 <b>회피(avoidance)</b>하는 대신, 드물게 생기면 감지해서 <b>복구(recovery)</b>하는 것입니다. 예를 들어 오래 막힌 패킷을 특별한 버퍼(DISHA)나 별도 경로로 빼내는 방식입니다.</p>
+
+<h2 id="protocol">프로토콜 데드락과 가상 네트워크</h2>
+<p>라우팅이 데드락 없이 설계되어도, 메시지 사이의 <b>의존성</b> 때문에 데드락이 날 수 있습니다. 메모리 컨트롤러는 요청을 받아야 응답을 보낼 수 있고, 응답을 보내지 못하면(네트워크가 요청으로 꽉 차 있어서) 새 요청을 받을 수 없습니다. 요청과 응답이 같은 VC를 공유하면 이 순환이 데드락을 만듭니다.</p>
+<figure class="figure">
+<svg class="vis" viewBox="0 0 760 230" style="width:100%;height:auto" role="img" aria-label="프로토콜 데드락">
+  <defs><marker id="ah6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--danger)"/></marker>
+  <marker id="ah6b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent-2)"/></marker></defs>
+  <text x="20" y="24" font-weight="700" font-size="14" fill="var(--text)">(a) 공유 VC: 요청 ↔ 응답 순환</text>
+  <rect x="30" y="60" width="110" height="60" rx="10" fill="var(--surface)" stroke="var(--c1)" stroke-width="2"/><text x="85" y="95" text-anchor="middle" font-size="14" fill="var(--text)">캐시 A</text>
+  <rect x="230" y="60" width="120" height="60" rx="10" fill="var(--surface)" stroke="var(--c4)" stroke-width="2"/><text x="290" y="88" text-anchor="middle" font-size="14" fill="var(--text)">메모리</text><text x="290" y="106" text-anchor="middle" font-size="11" fill="var(--text-mute)">출력 큐 가득</text>
+  <path d="M140 78 H228" stroke="var(--danger)" stroke-width="2.5" marker-end="url(#ah6)"/><text x="185" y="72" text-anchor="middle" font-size="12" fill="var(--danger)">요청 (막힘)</text>
+  <path d="M230 104 H142" stroke="var(--danger)" stroke-width="2.5" marker-end="url(#ah6)"/><text x="185" y="122" text-anchor="middle" font-size="12" fill="var(--danger)">응답 (막힘)</text>
+  <text x="30" y="160" font-size="12.5" fill="var(--text-soft)">요청이 네트워크를 채워 응답이 못 나가고,</text>
+  <text x="30" y="178" font-size="12.5" fill="var(--text-soft)">응답이 못 나가니 메모리는 요청을 소비할 수 없음</text>
+  <text x="400" y="24" font-weight="700" font-size="14" fill="var(--text)">(b) 메시지 클래스별 가상 네트워크</text>
+  <rect x="410" y="60" width="110" height="60" rx="10" fill="var(--surface)" stroke="var(--c1)" stroke-width="2"/><text x="465" y="95" text-anchor="middle" font-size="14" fill="var(--text)">캐시 A</text>
+  <rect x="610" y="60" width="120" height="60" rx="10" fill="var(--surface)" stroke="var(--c4)" stroke-width="2"/><text x="670" y="95" text-anchor="middle" font-size="14" fill="var(--text)">메모리</text>
+  <path d="M520 78 H608" stroke="var(--accent-2)" stroke-width="2.5" marker-end="url(#ah6b)"/><text x="565" y="72" text-anchor="middle" font-size="12" fill="var(--accent-2)">vnet0: 요청</text>
+  <path d="M610 104 H522" stroke="var(--accent-2)" stroke-width="2.5" marker-end="url(#ah6b)"/><text x="565" y="122" text-anchor="middle" font-size="12" fill="var(--accent-2)">vnet1: 응답</text>
+  <text x="410" y="160" font-size="12.5" fill="var(--text-soft)">응답은 별도 VC 집합을 쓰므로 요청이 아무리 많아도</text>
+  <text x="410" y="178" font-size="12.5" fill="var(--text-soft)">항상 진행 가능 → 응답이 소비되며 요청도 풀린다</text>
+  <text x="410" y="204" font-size="12.5" fill="var(--text-soft)">(응답은 반드시 소비된다는 "sink" 보장 필요)</text>
+</svg>
+<figcaption>프로토콜(메시지 의존성) 데드락. 캐시 일관성 프로토콜은 보통 요청·전달(forward)·응답 등 3~6개의 메시지 클래스를 서로 다른 가상 네트워크(VC 집합)에 분리합니다.</figcaption>
+</figure>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>VC는 같은 버퍼를 독립 큐로 나눠 HoL 블로킹을 줄이고 처리량을 높인다.</li>
+    <li>라우팅 데드락의 핵심은 순환 대기다. 채널 의존성 그래프가 비순환이면 데드락이 없다.</li>
+    <li>Mesh는 회전 금지(XY, Turn model)로, Ring/Torus는 Dateline VC로 순환을 끊는다.</li>
+    <li>Escape VC(Duato)는 적응형 라우팅을 허용하면서 데드락 자유를 보장한다.</li>
+    <li>요청–응답 의존성으로 인한 프로토콜 데드락은 메시지 클래스별 가상 네트워크로 막는다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="1">
+  <div class="q">8노드 단방향 링에서 VC가 1개뿐이고 dateline이 없다면?</div>
+  <div class="opts">
+    <button class="opt">트래픽이 적으면 데드락이 절대 생기지 않는다.</button>
+    <button class="opt">채널 의존성이 링을 따라 사이클을 이루므로 데드락이 가능하다.</button>
+    <button class="opt">링은 회전이 없으므로 데드락이 불가능하다.</button>
+  </div>
+  <div class="exp">회전이 없어도 링 자체가 사이클입니다. 모든 노드가 동시에 링을 따라 긴 패킷을 보내면 서로의 버퍼를 순환적으로 기다릴 수 있습니다. 부하가 낮으면 확률은 낮지만 0은 아닙니다. 데드락 실험실의 첫 번째 프리셋에서 확인하세요.</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">Duato의 Escape VC 방식에서 escape VC가 만족해야 하는 조건은?</div>
+  <div class="opts">
+    <button class="opt">완전 적응형이어야 한다.</button>
+    <button class="opt">모든 VC 중 가장 깊은 버퍼를 가져야 한다.</button>
+    <button class="opt">그 VC만으로 이루어진 라우팅(예: XY)이 데드락 없이 모든 목적지에 도달할 수 있어야 한다.</button>
+  </div>
+  <div class="exp">Escape VC들의 확장 의존성 그래프가 비순환이고 모든 목적지로의 경로를 제공하면, 적응형 VC에서 막힌 패킷은 언제든 escape 경로로 빠져나갈 수 있어 전체가 데드락이 없습니다.</div>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/noc.js"></script>
+<script src="assets/js/ch06.js"></script>
+</body>
+</html>

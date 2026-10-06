@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02. 토폴로지 — NoC Book</title>
+<meta name="description" content="Ring, Mesh, Torus, Hypercube, Flattened Butterfly, Fat-tree, Butterfly 토폴로지를 직접 만지며 직경, 평균 홉 수, 이분 대역폭을 비교합니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="2">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 02</div>
+  <h1>토폴로지: 연결의 모양</h1>
+  <p class="lead">토폴로지(topology)는 라우터와 링크를 어떤 모양으로 연결할지를 정합니다. 도시의 도로망 설계와 같습니다. 격자형 도로(Mesh)는 단순하고 확장이 쉽지만 도심을 가로지르기 멀고, 순환 도로(Torus)나 고속도로(Express link)는 거리를 줄이지만 건설비가 듭니다. 이 장에서는 대표적인 토폴로지를 직접 조작하며 비용과 성능의 균형을 숫자로 확인합니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 30분</span><span class="pill">🧪 실험 3개</span></div>
+</header>
+
+<h2 id="metrics">토폴로지를 평가하는 지표</h2>
+<p>토폴로지를 비교할 때 쓰는 대표적인 지표는 다음과 같습니다. 모두 라우팅이나 플로우 컨트롤과 무관하게 "그래프의 모양"만으로 결정되는 값들입니다.</p>
+<ul>
+  <li><span class="term">홉 수(hop count)</span> — 출발지에서 목적지까지 최단 경로가 지나는 라우터 간 링크 수. 평균 홉 수 \(H_{avg}\)는 지연시간을, 최대값인 <b>직경(diameter)</b>은 최악의 지연을 결정합니다.</li>
+  <li><span class="term">이분 대역폭(bisection bandwidth)</span> — 네트워크를 노드 수가 같은 두 반쪽으로 자를 때, 잘리는 링크 수의 최솟값. 전체 노드가 무작위로 통신하면 트래픽의 절반이 이 절단면을 건너야 하므로 <b>처리량의 상한</b>을 정합니다.</li>
+  <li><span class="term">라우터 차수(radix/degree)</span> — 라우터의 포트 수. 포트가 많을수록 크로스바와 할당기가 커지고 느려집니다(면적 ∝ 포트²).</li>
+  <li><span class="term">경로 다양성(path diversity)</span> — 두 노드 사이 최단 경로의 개수. 많을수록 혼잡을 피하거나 고장을 우회하기 쉽습니다(3장).</li>
+  <li><span class="term">물리적 구현성</span> — 칩은 2차원 평면입니다. 링크 길이가 고르고 짧으며 배선이 겹치지 않는 토폴로지가 유리합니다.</li>
+</ul>
+<div class="formula">$$\Theta_{\text{uniform}} \;\le\; \frac{2\,B_C}{N}\quad\text{(flits/node/cycle)}$$
+<span class="caption">균등 무작위 트래픽에서 노드당 처리량 상한. \(B_C\): 이분 채널 수(양방향 링크 = 각 방향 1채널), \(N\): 노드 수</span></div>
+
+<h2 id="explorer">토폴로지 탐험기</h2>
+<p>아래 실험에서 토폴로지와 규모를 고른 뒤, <b>노드를 클릭</b>하면 그 노드로부터의 홉 거리가 색으로 표시됩니다. <b>이분 절단</b>을 켜면 네트워크를 반으로 자를 때 끊어지는 링크가 강조됩니다.</p>
+
+<div class="widget wide" id="w-topo" data-title="토폴로지 탐험기: 클릭해서 홉 거리 보기">
+  <div class="foot"><b>직접망(direct)</b>은 모든 라우터에 단말(코어)이 붙어 있습니다(Ring, Mesh, Torus, Hypercube, Flattened Butterfly). <b>간접망(indirect)</b>은 단말(작은 원)이 일부 라우터에만 붙고 나머지 라우터는 중계만 합니다(Fat-tree, Butterfly). 홉 수는 라우터 간 링크 수 기준입니다.</div>
+</div>
+
+<h3>Ring</h3>
+<p>가장 단순한 토폴로지로, 라우터 차수가 3(좌·우·로컬)에 불과해 라우터가 작고 빠릅니다. 직경이 \(N/2\)로 노드 수에 비례해 늘어나므로 소규모(대략 8~16 노드)에 적합합니다. 인텔의 여러 세대 데스크톱/서버 CPU가 링 버스로 코어, LLC 슬라이스, 그래픽, 시스템 에이전트를 연결했습니다.</p>
+<h3>Mesh</h3>
+<p>칩의 2차원 평면에 그대로 맞아떨어지는 토폴로지입니다. 모든 링크가 이웃 타일 사이의 짧은 전선이고, 타일을 복제해 붙이기만 하면 확장됩니다. 그 대신 가장자리 노드는 링크를 덜 쓰고 중앙 링크에 트래픽이 몰리며, 직경이 \(2(k-1)\)입니다. 대부분의 연구용·상용 매니코어(Tilera, Intel Xeon Scalable/Xeon Phi, ARM CMN 등)가 Mesh를 씁니다.</p>
+<h3>Torus</h3>
+<p>Mesh의 각 행과 열의 끝을 이어 링으로 만든 것입니다. 대칭적이라 모든 노드가 동등하고, 직경이 절반, 이분 대역폭이 두 배입니다. 하지만 랩어라운드(wrap-around) 링크가 칩을 가로지르는 긴 전선이 되는데, 이는 아래 <b>폴디드 토러스</b>로 해결합니다. 또 링 구조 때문에 데드락을 피하려면 추가 가상 채널이 필요합니다(6장).</p>
+<h3>Flattened Butterfly · Hypercube · Fat-tree · Butterfly</h3>
+<p><b>Flattened Butterfly</b>는 같은 행/열의 모든 라우터를 직접 연결해 어디든 최대 2홉에 갑니다. 대신 라우터 차수가 크고 긴 전선이 많습니다. <b>Hypercube</b>는 \(\log_2 N\) 차원으로 직경이 \(\log_2N\)이지만 2D 평면에 배치하기 어려워 오프칩 슈퍼컴퓨터에서 주로 쓰였습니다. <b>Fat-tree</b>는 루트로 갈수록 대역폭을 넓혀 완전한 이분 대역폭을 제공하고 데이터센터 네트워크로 유명합니다. <b>Butterfly</b>는 모든 경로 길이가 같고 경로가 유일한 간접망입니다.</p>
+
+<h2 id="folded">폴디드 토러스: 긴 전선 접기</h2>
+<p>토러스의 랩어라운드 링크는 한쪽 끝에서 반대쪽 끝까지 가는 긴 전선입니다. 노드 순서를 <code>0, k-1, 1, k-2, 2, …</code>처럼 <b>교대로 배치</b>하면, 모든 링크의 길이를 2타일 이내로 고르게 만들 수 있습니다. 논리적 토폴로지는 그대로이고 물리적 배치만 바뀝니다. 슬라이더를 움직여 직접 접어 보세요.</p>
+
+<div class="widget" id="w-fold" data-title="Ring/Torus 접기: 논리 토폴로지는 그대로, 전선 길이는 균일하게">
+  <div class="foot">폴딩 후 가장 긴 링크는 \(k-1\) 타일에서 2타일로 줄어들지만, 평균 링크 길이는 약 1에서 약 2로 늘어납니다. 모든 링크가 같은 길이라는 점이 타이밍 설계에 유리합니다.</div>
+</div>
+
+<h2 id="scaling">규모에 따른 확장성 비교</h2>
+<p>노드 수가 커지면 토폴로지 간 차이가 극명해집니다. 지표를 바꿔 가며 확인하세요(x축은 로그 스케일).</p>
+<div class="widget" id="w-scale" data-title="토폴로지 확장성: 노드 수 N에 따른 지표 변화">
+  <div class="foot">평균 홉 수는 서로 다른 모든 (출발, 도착) 쌍에 대한 평균입니다. Fat-tree는 2진 n-tree(라우터 차수 4) 기준입니다. Ring과 Mesh는 비용이 낮지만 홉 수가 빨리 늘고, Flattened Butterfly는 홉 수가 2로 고정되는 대신 라우터 차수가 \(2(\sqrt N-1)+1\)로 커집니다.</div>
+</div>
+
+<div class="table-wrap">
+<table class="data">
+  <tr><th>토폴로지 (N 노드)</th><th>라우터 차수</th><th>직경</th><th>이분 링크 수</th><th>평면 배치</th></tr>
+  <tr><td>Ring</td><td>3</td><td>\(\lfloor N/2\rfloor\)</td><td>2</td><td>매우 쉬움</td></tr>
+  <tr><td>2D Mesh (\(k\times k\))</td><td>5</td><td>\(2(k-1)\)</td><td>\(k\)</td><td>매우 쉬움</td></tr>
+  <tr><td>2D Torus (\(k\times k\))</td><td>5</td><td>\(2\lfloor k/2\rfloor\)</td><td>\(2k\)</td><td>폴딩 필요</td></tr>
+  <tr><td>Hypercube (\(2^n\))</td><td>\(n+1\)</td><td>\(n\)</td><td>\(N/2\)</td><td>어려움</td></tr>
+  <tr><td>Flattened Butterfly (\(k\times k\))</td><td>\(2(k-1)+1\)</td><td>2</td><td>\(k^3/4\)</td><td>긴 전선 많음</td></tr>
+  <tr><td>Fat-tree (2진 n-tree)</td><td>4</td><td>\(2(n-1)\)</td><td>\(N/2\)</td><td>보통</td></tr>
+</table>
+</div>
+
+<h2 id="concentration">집중(Concentration)과 계층 구조</h2>
+<p>모든 코어에 라우터를 하나씩 두는 대신, 라우터 하나에 코어 여러 개(예: 4개)를 붙이는 <span class="term">집중 메시(Concentrated Mesh, CMesh)</span>를 쓰면 라우터 수와 홉 수가 줄어듭니다. 그 대가로 라우터 차수가 커지고(4+4=8포트) 로컬 포트에서 경합이 생깁니다. 실제 칩에서는 한 타일에 코어 + LLC 슬라이스 + 디렉터리를 묶어 하나의 라우터에 붙이는 방식이 흔하고, 대형 시스템은 칩렛 내부 메시 + 칩렛 간 네트워크처럼 <b>계층형</b>으로 구성됩니다(9장).</p>
+
+<div class="callout tip">
+  <div class="callout-title">💡 설계 감각</div>
+  <p>"평균 홉 수가 적은 토폴로지"가 항상 빠른 것은 아닙니다. 홉 수가 줄어드는 대신 라우터 차수가 커지면 라우터 내부 지연(\(t_r\))이 늘고, 링크가 길어지면 링크 지연(\(t_w\))이 늘며, 크로스바 면적과 전력도 증가합니다. 지연시간은 \(H\cdot(t_r+t_w)\) 이므로 세 요소를 함께 봐야 합니다(8장).</p>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>평균 홉 수/직경은 지연시간, 이분 대역폭은 처리량 상한, 라우터 차수는 라우터 비용과 속도를 결정한다.</li>
+    <li>Mesh는 2D 칩에 가장 자연스럽고 확장이 쉬워 매니코어 칩의 사실상 표준이다.</li>
+    <li>Torus는 직경을 절반, 이분 대역폭을 두 배로 늘리지만 폴딩과 데드락 회피용 VC가 필요하다.</li>
+    <li>고차수(high-radix) 토폴로지는 홉 수를 줄이는 대신 라우터와 배선 비용을 늘린다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="1">
+  <div class="q">8×8 Mesh와 8×8 Torus의 이분 링크 수는 각각?</div>
+  <div class="opts">
+    <button class="opt">8, 8</button>
+    <button class="opt">8, 16</button>
+    <button class="opt">16, 32</button>
+  </div>
+  <div class="exp">Mesh를 세로로 자르면 각 행에서 링크 1개씩, 총 k=8개가 잘립니다. Torus는 각 행이 링이므로 행마다 2개씩, 총 2k=16개가 잘립니다. 탐험기에서 이분 절단을 켜고 확인해 보세요.</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">균등 무작위 트래픽에서 8×8 Mesh(64노드)의 노드당 처리량 상한은 대략?</div>
+  <div class="opts">
+    <button class="opt">0.5 flits/node/cycle</button>
+    <button class="opt">1.0 flits/node/cycle</button>
+    <button class="opt">0.125 flits/node/cycle</button>
+  </div>
+  <div class="exp">이분 링크 8개 × 양방향 = 16 채널. \(\Theta \le 2B_C/N = 2\times 16/64 = 0.5\). 일반적으로 \(k\times k\) Mesh의 상한은 \(4/k\)입니다. 8장 시뮬레이터에서 실제 포화점이 이보다 낮게 나오는 것도 확인해 보세요.</div>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/noc.js"></script>
+<script src="assets/js/ch02.js"></script>
+</body>
+</html>

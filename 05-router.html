@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05. 라우터 마이크로아키텍처 — NoC Book</title>
+<meta name="description" content="가상 채널 라우터의 구성 요소(입력 버퍼, 라우트 계산, VC 할당기, 스위치 할당기, 크로스바)와 파이프라인 최적화(lookahead, speculation, bypass)를 애니메이션으로 살펴봅니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="5">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 05</div>
+  <h1>라우터 마이크로아키텍처</h1>
+  <p class="lead">앞 장들에서 정한 라우팅 규칙과 플로우 컨트롤 정책은 결국 라우터라는 하드웨어 블록이 매 클록마다 실행해야 합니다. 이 장에서는 가상 채널 라우터 내부를 열어 보고, 한 홉에 5사이클 걸리던 라우터를 1사이클까지 줄이는 파이프라인 기법들을 살펴봅니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 30분</span><span class="pill">🧪 실험 4개</span></div>
+</header>
+
+<h2 id="blocks">라우터의 구성 요소</h2>
+<p>전형적인 입력 버퍼(input-queued) 가상 채널 라우터는 다음 부품으로 이루어집니다.</p>
+<ul>
+  <li><span class="term">입력 유닛(Input unit)</span> — 입력 포트마다 VC별 FIFO 버퍼와 VC 상태(어느 출력 포트, 어느 출력 VC를 받았는지)를 가집니다.</li>
+  <li><span class="term">라우트 계산(RC)</span> — 헤드 플릿의 목적지를 보고 출력 포트를 정합니다.</li>
+  <li><span class="term">VC 할당기(VA)</span> — 헤드 플릿에게 하류 라우터의 빈 VC를 배정합니다. 패킷당 한 번.</li>
+  <li><span class="term">스위치 할당기(SA)</span> — 매 사이클 크로스바의 입력–출력 연결을 결정합니다. 플릿마다 매번.</li>
+  <li><span class="term">크로스바(Crossbar)</span> — 입력 포트에서 출력 포트로 플릿을 실제로 옮기는 스위치.</li>
+  <li><span class="term">출력 유닛(Output unit)</span> — 하류 VC 상태와 credit 카운터를 관리합니다.</li>
+</ul>
+
+<div class="widget wide" id="w-router" data-title="VC 라우터 해부도: 한 패킷이 라우터를 통과하는 과정">
+  <div class="foot">부품 위에 마우스를 올리면 설명이 나타납니다. <b>단계 진행</b>을 누르면 서쪽(W) 입력으로 들어온 3플릿 패킷이 동쪽(E) 출력으로 나가는 과정을 파이프라인 단계별로 보여줍니다. 헤드 플릿만 RC와 VA를 거치고, 바디/테일 플릿은 헤드가 확보한 경로를 그대로 따라갑니다.</div>
+</div>
+
+<h2 id="pipeline">라우터 파이프라인</h2>
+<p>헤드 플릿이 라우터를 통과하려면 논리적으로 다음 단계를 순서대로 거쳐야 합니다.</p>
+<div class="table-wrap">
+<table class="data">
+  <tr><th>단계</th><th>이름</th><th>하는 일</th><th>누가</th></tr>
+  <tr><td class="mono">BW</td><td>Buffer Write</td><td>도착한 플릿을 입력 VC 버퍼에 쓴다</td><td>모든 플릿</td></tr>
+  <tr><td class="mono">RC</td><td>Route Computation</td><td>출력 포트 결정</td><td>헤드만</td></tr>
+  <tr><td class="mono">VA</td><td>VC Allocation</td><td>하류 라우터의 VC 획득</td><td>헤드만</td></tr>
+  <tr><td class="mono">SA</td><td>Switch Allocation</td><td>이번 사이클 크로스바 사용권 획득</td><td>모든 플릿</td></tr>
+  <tr><td class="mono">ST</td><td>Switch Traversal</td><td>크로스바 통과</td><td>모든 플릿</td></tr>
+  <tr><td class="mono">LT</td><td>Link Traversal</td><td>링크를 건너 다음 라우터로</td><td>모든 플릿</td></tr>
+</table>
+</div>
+<p>각 단계를 한 사이클씩 쓰면 홉당 6사이클이 걸립니다. 지연시간 \(T_0 = H(t_r + t_w) + L - 1\)에서 \(t_r\)을 줄이는 것이 라우터 설계의 핵심 목표입니다. 대표적인 기법은 다음과 같습니다.</p>
+<ul>
+  <li><span class="term">Lookahead routing</span> — RC를 <i>이전 라우터</i>에서 미리 계산해 헤더에 실어 보냅니다(Next-hop RC). 현재 라우터에서는 BW와 함께 다음 라우터의 출력 포트를 계산합니다.</li>
+  <li><span class="term">Speculative SA</span> — VA 결과를 기다리지 않고 SA를 동시에 시도합니다. VA가 실패하면 SA 결과를 버립니다. 부하가 낮을 때는 거의 항상 성공합니다.</li>
+  <li><span class="term">Bypass / Single-cycle router</span> — 버퍼가 비어 있고 경합이 없으면 버퍼 쓰기와 할당을 건너뛰고 바로 크로스바로 보냅니다. 앞선 라우터가 보낸 lookahead 신호로 크로스바를 미리 설정합니다.</li>
+</ul>
+
+<div class="widget wide" id="w-pipeline" data-title="파이프라인 시공간표: 라우터 설계별 무부하 지연 비교">
+  <div class="foot">각 행은 플릿, 각 열은 사이클입니다. 바디/테일 플릿은 RC/VA가 없으므로 헤드 바로 뒤를 1사이클 간격으로 따라갑니다. 칸 사이의 빈 공간은 플릿이 버퍼에서 기다리는 시간입니다. 아래 차트는 홉 수에 따른 무부하 지연(헤드 출발 → 테일 도착)입니다.</div>
+</div>
+
+<h2 id="crossbar">크로스바 스위치</h2>
+<p>크로스바는 \(p\)개의 입력과 \(p\)개의 출력을 임의로 연결합니다. 하드웨어적으로는 출력마다 \(p:1\) 멀티플렉서를 두고, 스위치 할당기가 선택 신호를 정합니다. 한 사이클에 <b>각 입력은 최대 하나의 출력</b>으로, <b>각 출력은 최대 하나의 입력</b>에서만 플릿을 받을 수 있습니다. 이 제약을 만족하는 연결 집합을 <b>매칭(matching)</b>이라고 하며, 좋은 매칭을 빨리 찾는 것이 7장의 주제입니다.</p>
+
+<div class="widget" id="w-xbar" data-title="5×5 크로스바: 교차점을 클릭해 연결해 보기">
+  <div class="foot">대각선(같은 방향으로 되돌아가는 U-turn)은 대부분의 라우터에서 금지되어 회색입니다. 같은 행이나 같은 열에 두 개 이상 연결하면 충돌(빨간색)이 됩니다. 아래 멀티플렉서의 숫자는 각 출력이 선택한 입력입니다.</div>
+</div>
+
+<h2 id="cost">면적과 전력은 어디에 쓰일까</h2>
+<p>라우터 비용은 각 부품이 파라미터에 따라 다르게 증가합니다. 버퍼는 포트 수 × VC 수 × 깊이 × 폭에 비례하고, 크로스바는 \((p\cdot w)^2\)에, 할당기는 \((p\cdot v)^2\) 정도로 증가합니다. 아래 실험은 이런 <b>스케일링 법칙</b>을 보여주기 위한 개념적 모델입니다(계수는 임의로 정규화했습니다).</p>
+
+<div class="widget" id="w-area" data-title="라우터 면적 구성 (개념적 스케일링 모델)">
+  <div class="foot">실제 수치는 공정, 플립플롭 vs SRAM 버퍼, 크로스바 구현 방식에 따라 크게 다릅니다. 연구들(예: ORION, DSENT 같은 NoC 전력·면적 모델)에서 공통적으로 관찰되는 경향은 <b>버퍼와 크로스바가 라우터 면적과 전력의 대부분</b>을 차지한다는 것입니다. 그래서 버퍼를 없애는 bufferless 라우터(9장)가 연구되었습니다.</div>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>VC 라우터 = 입력 버퍼 + RC + VA + SA + 크로스바 + 출력 유닛. RC/VA는 패킷당 한 번, SA/ST는 플릿마다 수행된다.</li>
+    <li>기본 파이프라인 BW→RC→VA→SA→ST(+LT)는 lookahead routing, speculative SA, bypass로 1~2 사이클까지 줄일 수 있다.</li>
+    <li>크로스바는 매 사이클 입력–출력 매칭만 허용하며, 비용은 (포트 수 × 폭)²으로 증가한다.</li>
+    <li>버퍼와 크로스바가 라우터 면적·전력의 대부분을 차지한다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="0">
+  <div class="q">바디 플릿이 거치지 <b>않는</b> 파이프라인 단계는?</div>
+  <div class="opts">
+    <button class="opt">RC와 VA</button>
+    <button class="opt">SA와 ST</button>
+    <button class="opt">BW와 LT</button>
+  </div>
+  <div class="exp">출력 포트(RC)와 하류 VC(VA)는 패킷 단위로 헤드 플릿이 한 번만 결정합니다. 바디 플릿은 VC 상태에 저장된 결과를 그대로 쓰고, 크로스바 사용권(SA)은 매 플릿마다 경쟁해야 합니다.</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">Speculative SA가 실패하는 경우는?</div>
+  <div class="opts">
+    <button class="opt">크로스바에 연결된 링크가 너무 길 때</button>
+    <button class="opt">플릿이 바디 플릿일 때</button>
+    <button class="opt">같은 사이클에 VC 할당이 실패했을 때 (스위치를 얻었지만 하류 VC를 얻지 못함)</button>
+  </div>
+  <div class="exp">투기적 SA는 VA 결과를 기다리지 않고 동시에 수행합니다. VA가 실패하면 획득한 스위치 슬롯을 쓰지 못하고 버립니다. 그래서 투기적 요청은 비투기적 요청보다 낮은 우선순위를 받습니다.</div>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/noc.js"></script>
+<script src="assets/js/ch05.js"></script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04. 플로우 컨트롤 — NoC Book</title>
+<meta name="description" content="메시지·패킷·플릿·피트, Store-and-forward, Virtual cut-through, Wormhole 스위칭과 Credit 기반 플로우 컨트롤을 시공간 다이어그램과 애니메이션으로 이해합니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="4">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 04</div>
+  <h1>플로우 컨트롤: 버퍼와 링크를 나누는 법</h1>
+  <p class="lead">라우팅이 "어디로 갈지"를 정한다면, 플로우 컨트롤은 "언제 갈 수 있는지"를 정합니다. 링크와 버퍼는 유한한 자원이고, 여러 패킷이 동시에 원할 때 누구에게 얼마 동안 줄지가 네트워크의 지연시간과 처리량, 그리고 칩 면적을 좌우합니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 30분</span><span class="pill">🧪 실험 3개</span></div>
+</header>
+
+<h2 id="units">메시지, 패킷, 플릿, 피트</h2>
+<p>NoC에서 데이터는 여러 단위로 쪼개집니다.</p>
+<ul>
+  <li><span class="term">메시지(message)</span> — IP 블록이 보내려는 논리적 단위. 예: 64바이트 캐시 라인 응답.</li>
+  <li><span class="term">패킷(packet)</span> — 라우팅의 단위. 헤더에 목적지 정보가 있고, 패킷의 모든 조각은 같은 경로를 따릅니다.</li>
+  <li><span class="term">플릿(flit, flow control unit)</span> — 버퍼 할당과 플로우 컨트롤의 단위. 패킷은 <b>헤드(head)</b>, <b>바디(body)</b>, <b>테일(tail)</b> 플릿으로 나뉩니다. 헤드 플릿만 라우팅 정보를 가지며 경로를 "개척"하고, 테일 플릿이 지나가면 자원이 해제됩니다.</li>
+  <li><span class="term">피트(phit, physical unit)</span> — 링크가 한 사이클에 전송하는 비트 수. NoC에서는 보통 링크가 넓어서(64~512비트) <b>플릿 = 피트</b>인 경우가 많습니다.</li>
+</ul>
+
+<div class="widget" id="w-packet" data-title="패킷 해부: 메시지를 플릿으로 쪼개기">
+  <div class="foot">헤더 필드 폭은 예시입니다. 링크(플릿) 폭을 넓히면 플릿 수가 줄어 직렬화 지연이 줄지만, 모든 버퍼·크로스바·링크가 넓어져 면적과 전력이 늘어납니다. 짧은 요청 패킷은 플릿 하나에 헤더와 주소가 함께 들어가기도 합니다.</div>
+</div>
+
+<h2 id="switching">스위칭 기법: 언제 다음 라우터로 넘길까</h2>
+<p>패킷 전체가 도착할 때까지 기다릴지, 헤드가 오자마자 출발시킬지에 따라 세 가지 기법이 나뉩니다.</p>
+<ul>
+  <li><span class="term">Store-and-Forward (SAF)</span> — 패킷 전체를 받은 뒤에야 다음 라우터로 보냅니다. 각 홉마다 패킷 길이 \(L\)만큼 기다리므로 지연이 \(H\cdot(t_r+L)\)로 큽니다. 버퍼는 패킷 하나 크기가 필요합니다.</li>
+  <li><span class="term">Virtual Cut-Through (VCT)</span> — 헤드가 도착하면 바로 출발합니다(다음 라우터에 <b>패킷 전체를 받을 공간</b>이 있을 때만). 지연은 \(H\cdot t_r + L\). 막히면 패킷 전체가 한 라우터에 모입니다.</li>
+  <li><span class="term">Wormhole</span> — 헤드가 도착하면 바로 출발하되, 다음 라우터에 <b>플릿 몇 개분의 공간</b>만 있으면 됩니다. 버퍼가 작아 NoC에서 가장 널리 쓰입니다. 대신 막히면 패킷이 여러 라우터에 걸쳐 <b>링크를 붙잡은 채</b> 멈춥니다(지렁이처럼!).</li>
+</ul>
+<div class="formula">$$T_{\text{SAF}} = H\,(t_r + L/b) \qquad T_{\text{VCT}} = T_{\text{WH}} = H\,t_r + L/b \quad (\text{경합이 없을 때})$$
+<span class="caption">\(H\): 홉 수, \(t_r\): 라우터 지연, \(L/b\): 직렬화 지연 (패킷 길이 / 링크 대역폭 = 플릿 수)</span></div>
+
+<div class="widget wide" id="w-switching" data-title="시공간 다이어그램: SAF · VCT · Wormhole 비교 (막힘 상황 포함)">
+  <div class="foot">각 행은 링크(채널), 각 열은 사이클입니다. 칸 안의 숫자는 그 사이클에 링크를 지나는 플릿 번호(H=헤드, T=테일)입니다. 엷게 칠해진 칸은 <b>할당되어 다른 패킷이 쓸 수 없지만 아무것도 전송하지 않는</b> 링크입니다. 막힘을 켜면 마지막 링크의 출력이 몇 사이클 동안 막힙니다 — Wormhole은 여러 링크를 붙잡고 멈추지만, VCT는 패킷 전체를 한 라우터에 흡수해 상류 링크를 놓아줍니다.</div>
+</div>
+
+<h2 id="buffers">버퍼 관리: 다음 라우터에 자리가 있을까?</h2>
+<p>상류(upstream) 라우터는 하류(downstream) 라우터의 버퍼가 가득 찼는지 알아야 플릿을 보낼 수 있습니다. 대표적인 방법은 세 가지입니다.</p>
+<ul>
+  <li><span class="term">Credit 기반</span> — 상류가 하류 버퍼의 빈칸 수를 카운터(credit)로 추적합니다. 플릿을 보낼 때마다 카운터를 1 줄이고, 하류가 플릿을 내보내 빈칸이 생기면 credit을 돌려보내 카운터를 1 늘립니다. 정확하고 효율적이라 가장 흔합니다.</li>
+  <li><span class="term">On/Off</span> — 하류가 버퍼 점유량이 임계값을 넘으면 "Off" 신호를, 내려가면 "On" 신호를 보냅니다. 신호선이 1비트라 간단하지만 신호 왕복 동안 도착할 플릿을 위한 여유 버퍼가 필요합니다.</li>
+  <li><span class="term">Ack/Nack</span> — 일단 보내고, 하류에 자리가 없으면 버리고 Nack을 보내 재전송하게 합니다. 재전송을 위해 상류가 사본을 보관해야 해서 NoC에서는 드뭅니다.</li>
+</ul>
+<p>Credit 방식의 핵심 개념은 <span class="term">credit 왕복 지연(credit round-trip delay)</span> \(t_{crt}\)입니다. 플릿이 버퍼 칸을 떠나는 순간부터 그 칸이 다시 채워질 수 있게 되기까지 걸리는 시간입니다: credit이 상류로 돌아가는 시간 + 상류의 처리 시간 + 새 플릿이 하류로 오는 시간. 버퍼 깊이 \(B\)가 이보다 작으면 링크가 놀게 됩니다.</p>
+<div class="formula">$$\Theta_{\text{link}} = \min\!\left(1,\; \frac{B}{t_{crt}}\right)\ \text{flits/cycle}$$
+<span class="caption">버퍼 깊이 B가 credit 왕복 지연보다 작으면 링크를 최대 속도로 쓸 수 없다</span></div>
+
+<div class="widget wide" id="w-credit" data-title="Credit 기반 플로우 컨트롤: 버퍼 깊이와 왕복 지연">
+  <div class="foot">상류 라우터(왼쪽)는 credit 카운터가 0보다 클 때만 플릿을 보냅니다. 하류 라우터(오른쪽)는 매 사이클 버퍼의 플릿 하나를 다음 단계로 내보내고(소비율 조절 가능) credit을 돌려보냅니다. 버퍼 깊이를 왕복 지연보다 작게 만들어 링크에 생기는 "거품(bubble)"을 확인하세요.</div>
+</div>
+
+<h2 id="vc-preview">가상 채널 미리보기</h2>
+<p>Wormhole의 문제는 앞의 패킷이 막히면 같은 버퍼에 있는 뒤의 패킷도 꼼짝 못 한다는 것입니다. 뒤의 패킷은 전혀 다른 방향으로 가려고 해도 말이죠. 이것이 <b>Head-of-Line(HoL) 블로킹</b>입니다. 해법은 하나의 물리 링크에 여러 개의 독립된 버퍼 큐, 즉 <span class="term">가상 채널(Virtual Channel, VC)</span>을 두는 것입니다(Dally, 1992). VC는 처리량 향상뿐 아니라 데드락 회피의 핵심 도구이기도 합니다. <a href="06-deadlock.html">6장</a>에서 직접 실험합니다.</p>
+<figure class="figure">
+<svg class="vis" viewBox="0 0 760 210" style="width:100%;height:auto" role="img" aria-label="VC 개념도">
+  <g font-size="13" fill="var(--text-soft)">
+    <text x="20" y="22" font-weight="700" fill="var(--text)">(a) VC 없음: 하나의 FIFO</text>
+    <text x="400" y="22" font-weight="700" fill="var(--text)">(b) VC 2개: 링크를 시분할 공유</text>
+  </g>
+  <g>
+    <rect x="20" y="60" width="200" height="40" rx="6" fill="var(--surface-2)" stroke="var(--border-strong)"/>
+    <rect x="26" y="66" width="30" height="28" rx="4" fill="var(--c1)"/><rect x="60" y="66" width="30" height="28" rx="4" fill="var(--c1)"/>
+    <rect x="94" y="66" width="30" height="28" rx="4" fill="var(--c3)"/><rect x="128" y="66" width="30" height="28" rx="4" fill="var(--c3)"/>
+    <rect x="162" y="66" width="30" height="28" rx="4" fill="var(--c3)"/>
+    <path d="M220 80 H300" stroke="var(--danger)" stroke-width="3"/><text x="305" y="85" fill="var(--danger)" font-size="13" font-weight="700">✕ 막힘</text>
+    <text x="20" y="128" font-size="12.5" fill="var(--text-soft)">주황 패킷(맨 앞)이 막히면 파란 패킷도</text>
+    <text x="20" y="146" font-size="12.5" fill="var(--text-soft)">출력이 비어 있는데 대기해야 함 (HoL 블로킹)</text>
+  </g>
+  <g>
+    <rect x="400" y="44" width="200" height="34" rx="6" fill="var(--surface-2)" stroke="var(--border-strong)"/>
+    <text x="388" y="66" font-size="11" text-anchor="end" fill="var(--text-mute)">VC0</text>
+    <rect x="496" y="49" width="30" height="24" rx="4" fill="var(--c3)"/><rect x="530" y="49" width="30" height="24" rx="4" fill="var(--c3)"/><rect x="564" y="49" width="30" height="24" rx="4" fill="var(--c3)"/>
+    <rect x="400" y="88" width="200" height="34" rx="6" fill="var(--surface-2)" stroke="var(--border-strong)"/>
+    <text x="388" y="110" font-size="11" text-anchor="end" fill="var(--text-mute)">VC1</text>
+    <rect x="530" y="93" width="30" height="24" rx="4" fill="var(--c1)"/><rect x="564" y="93" width="30" height="24" rx="4" fill="var(--c1)"/>
+    <path d="M600 61 H640" stroke="var(--danger)" stroke-width="3"/><text x="646" y="66" fill="var(--danger)" font-size="13" font-weight="700">✕ 막힘</text>
+    <path d="M600 105 H700" stroke="var(--accent-2)" stroke-width="3"/><text x="706" y="110" fill="var(--accent-2)" font-size="13" font-weight="700">✓ 진행</text>
+    <text x="400" y="150" font-size="12.5" fill="var(--text-soft)">파란 패킷은 다른 VC에 있으므로 막힌 패킷을</text>
+    <text x="400" y="168" font-size="12.5" fill="var(--text-soft)">추월해 링크를 사용할 수 있음</text>
+  </g>
+</svg>
+<figcaption>가상 채널(VC)은 물리 링크 하나에 여러 개의 독립 버퍼 큐를 두어, 막힌 패킷 뒤에 있는 패킷이 링크를 계속 쓸 수 있게 합니다.</figcaption>
+</figure>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>패킷은 라우팅의 단위, 플릿은 버퍼/플로우 컨트롤의 단위, 피트는 물리 전송의 단위다.</li>
+    <li>SAF는 홉마다 직렬화 지연을 반복해 느리고, VCT와 Wormhole은 파이프라인화로 \(H t_r + L\)의 지연을 얻는다.</li>
+    <li>Wormhole은 버퍼가 작아 NoC에 적합하지만, 막히면 여러 링크를 붙잡아 다른 트래픽을 방해한다.</li>
+    <li>Credit 기반 플로우 컨트롤에서 버퍼 깊이는 credit 왕복 지연 이상이어야 링크를 100% 활용할 수 있다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="1">
+  <div class="q">5홉, 라우터 지연 2사이클, 8플릿 패킷. 경합이 없을 때 SAF와 Wormhole의 지연은? (링크 1플릿/사이클, 링크 지연은 라우터 지연에 포함)</div>
+  <div class="opts">
+    <button class="opt">SAF 18, Wormhole 18</button>
+    <button class="opt">SAF 50, Wormhole 18</button>
+    <button class="opt">SAF 40, Wormhole 13</button>
+  </div>
+  <div class="exp">SAF: \(H(t_r+L) = 5(2+8) = 50\). Wormhole: \(H t_r + L = 5\cdot 2 + 8 = 18\). 시공간 다이어그램 실험에서 같은 값을 설정해 확인해 보세요.</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">credit 왕복 지연이 5사이클인데 버퍼 깊이가 3이라면 링크의 최대 이용률은?</div>
+  <div class="opts">
+    <button class="opt">100%</button>
+    <button class="opt">약 40%</button>
+    <button class="opt">60%</button>
+  </div>
+  <div class="exp">\(\min(1, B/t_{crt}) = 3/5 = 60\%\). 5사이클마다 3개의 플릿만 보낼 수 있습니다.</div>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/noc.js"></script>
+<script src="assets/js/ch04.js"></script>
+</body>
+</html>

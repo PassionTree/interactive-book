@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>부록: 용어집 &amp; 참고문헌 — NoC Book</title>
+<meta name="description" content="Network-on-Chip 용어집, 핵심 수식 모음, 더 읽을거리.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<style>
+  .gloss-search { width: 100%; font: inherit; font-size: 16px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); margin: 8px 0 16px; }
+  .gloss { display: grid; gap: 10px; }
+  .gloss-item { border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; background: var(--surface); }
+  .gloss-item dt { font-weight: 700; }
+  .gloss-item dt .en { color: var(--text-mute); font-weight: 500; font-size: 14px; margin-left: 6px; }
+  .gloss-item dt a { font-size: 12px; margin-left: 8px; font-weight: 500; }
+  .gloss-item dd { margin: 4px 0 0; color: var(--text-soft); font-size: 15px; line-height: 1.65; }
+  .refs li { margin: .5em 0; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="A">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Appendix</div>
+  <h1>용어집 &amp; 참고문헌</h1>
+  <p class="lead">이 책에 나온 용어와 핵심 수식을 한곳에 모았습니다. 검색창에 한글이나 영어로 입력해 보세요.</p>
+</header>
+
+<h2 id="glossary">용어집</h2>
+<input class="gloss-search" id="q" type="search" placeholder="예: credit, 데드락, wormhole, VC…" aria-label="용어 검색">
+<dl class="gloss" id="gloss"></dl>
+
+<h2 id="formulas">핵심 수식 모음</h2>
+<div class="table-wrap">
+<table class="data">
+  <tr><th>항목</th><th>수식</th><th>장</th></tr>
+  <tr><td>무부하 지연</td><td>\(T_0 = H\,t_r + H\,t_w + L/b\)</td><td>4, 8</td></tr>
+  <tr><td>Store-and-forward 지연</td><td>\(T = H\,(t_r + L/b)\)</td><td>4</td></tr>
+  <tr><td>Cut-through / Wormhole 지연</td><td>\(T = H\,t_r + L/b\)</td><td>4</td></tr>
+  <tr><td>Credit 링크 처리량</td><td>\(\Theta = \min(1, B/t_{crt})\)</td><td>4</td></tr>
+  <tr><td>이상적 처리량</td><td>\(\Theta_{ideal} = 1/\gamma_{max}\)</td><td>8</td></tr>
+  <tr><td>균등 트래픽 이분 상한</td><td>\(\Theta \le 2B_C/N\) (k×k Mesh: \(4/k\), Torus: \(8/k\))</td><td>2, 8</td></tr>
+  <tr><td>k×k Mesh 평균 홉 (자기 자신 포함)</td><td>\(2(k^2-1)/(3k) \approx 2k/3\)</td><td>2</td></tr>
+  <tr><td>k×k Torus 평균 홉 (k 짝수, 자기 자신 포함)</td><td>\(k/2\)</td><td>2</td></tr>
+  <tr><td>최소 경로 수 (2D Mesh)</td><td>\(\binom{|\Delta x|+|\Delta y|}{|\Delta x|}\)</td><td>3</td></tr>
+  <tr><td>와이어 지연 (리피터 없음)</td><td>\(t \approx 0.38\,r\,c\,\ell^2\)</td><td>1</td></tr>
+</table>
+</div>
+
+<h2 id="refs">참고문헌 &amp; 더 읽을거리</h2>
+<h3>교과서</h3>
+<ul class="refs">
+  <li>W. J. Dally, B. Towles. <i>Principles and Practices of Interconnection Networks</i>. Morgan Kaufmann, 2004. — 상호연결망의 바이블.</li>
+  <li>N. Enright Jerger, T. Krishna, L.-S. Peh. <i>On-Chip Networks</i>, 2nd ed. Synthesis Lectures on Computer Architecture, Morgan &amp; Claypool, 2017. — NoC에 특화된 간결한 입문서.</li>
+  <li>J. Duato, S. Yalamanchili, L. Ni. <i>Interconnection Networks: An Engineering Approach</i>. Morgan Kaufmann, 2003.</li>
+</ul>
+<h3>핵심 논문</h3>
+<ul class="refs">
+  <li>W. J. Dally, C. L. Seitz. “Deadlock-Free Message Routing in Multiprocessor Interconnection Networks.” <i>IEEE Trans. Computers</i>, 1987.</li>
+  <li>W. J. Dally. “Virtual-Channel Flow Control.” <i>IEEE Trans. Parallel and Distributed Systems</i>, 1992.</li>
+  <li>C. J. Glass, L. M. Ni. “The Turn Model for Adaptive Routing.” <i>ISCA</i>, 1992.</li>
+  <li>J. Duato. “A New Theory of Deadlock-Free Adaptive Routing in Wormhole Networks.” <i>IEEE TPDS</i>, 1993.</li>
+  <li>G.-M. Chiu. “The Odd-Even Turn Model for Adaptive Routing.” <i>IEEE TPDS</i>, 2000.</li>
+  <li>W. J. Dally, B. Towles. “Route Packets, Not Wires: On-Chip Interconnection Networks.” <i>DAC</i>, 2001.</li>
+  <li>L. Benini, G. De Micheli. “Networks on Chips: A New SoC Paradigm.” <i>IEEE Computer</i>, 2002.</li>
+  <li>D. Seo, A. Ali, W.-T. Lim, N. Rafique, M. Thottethodi. “Near-Optimal Worst-Case Throughput Routing for Two-Dimensional Mesh Networks (O1TURN).” <i>ISCA</i>, 2005.</li>
+  <li>L. G. Valiant, G. J. Brebner. “Universal Schemes for Parallel Communication.” <i>STOC</i>, 1981.</li>
+  <li>M. J. Karol, M. G. Hluchyj, S. P. Morgan. “Input Versus Output Queueing on a Space-Division Packet Switch.” <i>IEEE Trans. Communications</i>, 1987.</li>
+  <li>M. Thottethodi, A. R. Lebeck, S. S. Mukherjee. “Self-Tuned Congestion Control for Multiprocessor Networks.” <i>HPCA</i>, 2001.</li>
+  <li>A. Kumar, L.-S. Peh, P. Kundu, N. K. Jha. “Express Virtual Channels: Towards the Ideal Interconnection Fabric.” <i>ISCA</i>, 2007.</li>
+  <li>T. Moscibroda, O. Mutlu. “A Case for Bufferless Routing in On-Chip Networks.” <i>ISCA</i>, 2009.</li>
+  <li>T. Krishna et al. “Breaking the On-Chip Latency Barrier Using SMART.” <i>HPCA</i>, 2013.</li>
+  <li>J. Kim, J. Balfour, W. J. Dally. “Flattened Butterfly Topology for On-Chip Networks.” <i>MICRO</i>, 2007.</li>
+</ul>
+<h3>시뮬레이터와 도구</h3>
+<ul class="refs">
+  <li><b>BookSim 2.0</b> — Dally &amp; Towles 교과서와 함께 개발된 사이클 단위 상호연결망 시뮬레이터 (N. Jiang et al., ISPASS 2013).</li>
+  <li><b>gem5 / Garnet</b> — 전체 시스템 시뮬레이터 gem5에 통합된 상세 NoC 모델.</li>
+  <li><b>DSENT, ORION</b> — NoC 라우터와 링크의 전력·면적 추정 모델.</li>
+</ul>
+
+<div class="callout note">
+  <div class="callout-title">ℹ️ 이 책의 시뮬레이터에 대해</div>
+  <p>이 책의 모든 실험은 브라우저의 JavaScript로 실행되는 교육용 모델입니다. 8장 시뮬레이터는 입력 버퍼 VC 라우터, credit 기반 wormhole 플로우 컨트롤, 원자적 VC 할당, 분리형 라운드 로빈 스위치 할당을 모델링하지만, 실제 하드웨어의 세부(파이프라인 투기, 크레딧 지연, 출력 버퍼 등)를 단순화했습니다. 연구용 수치가 필요하면 BookSim이나 Garnet을 사용하세요. 소스 코드는 <code>assets/js/noc.js</code>에 있습니다.</p>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script>
+NB.ready(function () {
+  const G = [
+    ['Adaptive routing', '적응형 라우팅', '네트워크 혼잡 상태를 보고 여러 경로 중 하나를 동적으로 고르는 라우팅.', '03-routing.html'],
+    ['Allocator', '할당기', '여러 요청자와 여러 자원 사이의 매칭을 찾는 회로. VC 할당기와 스위치 할당기가 있다.', '07-allocation.html'],
+    ['Arbiter', '중재기', '하나의 자원을 원하는 여러 요청 중 하나를 고르는 회로. 고정 우선순위, 라운드 로빈, 매트릭스 등.', '07-allocation.html'],
+    ['Bisection bandwidth', '이분 대역폭', '네트워크를 같은 크기의 두 부분으로 나눌 때 잘리는 채널 대역폭의 최솟값. 균등 트래픽 처리량의 상한을 정한다.', '02-topology.html'],
+    ['Bufferless routing', '버퍼리스 라우팅', '라우터에 버퍼를 두지 않고, 경합 시 플릿을 다른 방향으로 디플렉션하는 방식. BLESS 등.', '09-advanced.html'],
+    ['Bypass', '바이패스', '경합이 없을 때 버퍼 쓰기와 할당 단계를 건너뛰어 라우터 지연을 줄이는 기법.', '05-router.html'],
+    ['Channel dependency graph (CDG)', '채널 의존성 그래프', '채널을 노드로, "점유한 채 요청 가능"을 간선으로 하는 그래프. 비순환이면 데드락이 없다(Dally & Seitz).', '06-deadlock.html'],
+    ['Channel load', '채널 부하', '모든 노드가 단위 주입률로 보낼 때 특정 채널이 받는 평균 트래픽 γ. 최댓값이 이상적 처리량을 결정한다.', '08-performance.html'],
+    ['Concentration', '집중', '하나의 라우터에 여러 단말(코어)을 붙여 라우터 수와 홉 수를 줄이는 기법.', '02-topology.html'],
+    ['Credit', '크레딧', '하류 버퍼의 빈칸 수를 상류가 추적하는 카운터. 플릿을 보낼 때 감소, 크레딧이 돌아오면 증가.', '04-flow-control.html'],
+    ['Crossbar', '크로스바', 'p개의 입력과 p개의 출력을 임의로 연결하는 스위치. 비용은 (p·w)²에 비례.', '05-router.html'],
+    ['Dateline', '데이트라인', '링/토러스의 한 지점. 이곳을 건넌 패킷은 다른 VC 클래스를 쓰도록 해 순환 의존성을 끊는다.', '06-deadlock.html'],
+    ['Deadlock', '데드락', '패킷들이 자원을 점유한 채 서로의 자원을 순환적으로 기다려 영원히 진행하지 못하는 상태.', '06-deadlock.html'],
+    ['Deflection routing', '디플렉션 라우팅', '원하는 출력을 얻지 못한 플릿을 다른 출력으로 내보내는 라우팅. 버퍼가 필요 없다.', '09-advanced.html'],
+    ['Diameter', '직경', '모든 노드 쌍의 최단 경로 홉 수 중 최댓값.', '02-topology.html'],
+    ['Dimension-order routing (DOR)', '차원 순서 라우팅', '정해진 차원 순서(예: X 다음 Y)로 이동하는 결정적 라우팅. XY 라우팅.', '03-routing.html'],
+    ['Escape VC', '탈출 VC', '데드락 없는 라우팅만 허용하는 VC. 적응형 VC에서 막힌 패킷이 언제든 옮겨 갈 수 있게 해 데드락 자유를 보장(Duato).', '06-deadlock.html'],
+    ['Flit', '플릿', 'Flow control unit. 버퍼 할당과 플로우 컨트롤의 단위. 헤드, 바디, 테일 플릿.', '04-flow-control.html'],
+    ['Flow control', '플로우 컨트롤', '버퍼와 링크를 언제 누구에게 할당할지 정하는 정책.', '04-flow-control.html'],
+    ['Folded torus', '폴디드 토러스', '노드를 교대 배치해 토러스의 긴 랩어라운드 전선을 없앤 물리적 배치.', '02-topology.html'],
+    ['Head-of-line (HoL) blocking', 'HoL 블로킹', 'FIFO 맨 앞의 막힌 패킷 때문에 뒤의 패킷도 진행하지 못하는 현상.', '06-deadlock.html'],
+    ['Hop count', '홉 수', '경로가 거치는 라우터 간 링크 수.', '02-topology.html'],
+    ['Livelock', '라이브락', '패킷이 계속 움직이지만 목적지에 도달하지 못하는 상태. 비최소·디플렉션 라우팅에서 주의.', '09-advanced.html'],
+    ['Lookahead routing', '룩어헤드 라우팅', '다음 라우터의 출력 포트를 현재 라우터에서 미리 계산해 RC 단계를 파이프라인에서 제거.', '05-router.html'],
+    ['Mesh', '메시', '격자형 토폴로지. 평면 배치가 쉬워 매니코어 칩에서 가장 널리 쓰인다.', '02-topology.html'],
+    ['Network interface (NI)', '네트워크 인터페이스', 'IP 블록의 트랜잭션을 패킷으로 바꾸고(패킷화) 되돌리는 블록.', '01-intro.html'],
+    ['Odd-Even routing', '오드-이븐 라우팅', '열의 짝/홀에 따라 다른 회전을 금지해 VC 없이 데드락 없는 적응형 라우팅을 제공(Chiu).', '03-routing.html'],
+    ['Packet', '패킷', '라우팅의 단위. 헤더에 목적지 정보가 있다.', '04-flow-control.html'],
+    ['Phit', '피트', 'Physical unit. 링크가 한 사이클에 전송하는 비트 묶음.', '04-flow-control.html'],
+    ['Protocol deadlock', '프로토콜 데드락', '요청–응답 같은 메시지 간 의존성으로 생기는 데드락. 메시지 클래스별 가상 네트워크로 방지.', '06-deadlock.html'],
+    ['Router pipeline', '라우터 파이프라인', 'BW → RC → VA → SA → ST → LT 단계.', '05-router.html'],
+    ['Saturation throughput', '포화 처리량', '지연시간이 급격히 발산하기 시작하는 주입률.', '08-performance.html'],
+    ['Separable allocator', '분리형 할당기', '입력 중재와 출력 중재 두 단의 중재기로 매칭을 근사하는 할당기.', '07-allocation.html'],
+    ['Speculative switch allocation', '투기적 스위치 할당', 'VC 할당 결과를 기다리지 않고 스위치 할당을 동시에 시도해 파이프라인 단계를 줄이는 기법.', '05-router.html'],
+    ['Store-and-forward', '저장 후 전달', '패킷 전체를 받은 뒤 다음 홉으로 보내는 스위칭. 지연이 H·(t_r + L).', '04-flow-control.html'],
+    ['Torus', '토러스', '메시의 각 행/열 끝을 이은 토폴로지. 직경 절반, 이분 대역폭 두 배.', '02-topology.html'],
+    ['Turn model', '턴 모델', '회전 일부를 금지해 채널 의존성 사이클을 끊는 데드락 회피 방법(Glass & Ni).', '03-routing.html'],
+    ['Valiant routing', '발리언트 라우팅', '무작위 중간 노드를 거쳐 가는 비최소 무관 라우팅. 최악 패턴에 강하다.', '03-routing.html'],
+    ['Virtual channel (VC)', '가상 채널', '하나의 물리 링크를 공유하는 여러 독립 버퍼 큐. HoL 블로킹 완화와 데드락 회피에 쓰인다.', '06-deadlock.html'],
+    ['Virtual cut-through', '버추얼 컷스루', '헤드가 도착하면 바로 전달하되, 다음 라우터에 패킷 전체를 담을 공간이 있을 때만 전달하는 스위칭.', '04-flow-control.html'],
+    ['Virtual network (vnet)', '가상 네트워크', '메시지 클래스별로 분리된 VC 집합. 프로토콜 데드락을 막는다.', '06-deadlock.html'],
+    ['Wavefront allocator', '웨이브프론트 할당기', '요청 행렬의 대각선을 따라 우선순위를 쓸어 가며 극대 매칭을 만드는 할당기.', '07-allocation.html'],
+    ['Wormhole', '웜홀', '플릿 단위로 버퍼를 할당하며 헤드가 도착하면 바로 전달하는 스위칭. 막히면 여러 라우터에 걸쳐 멈춘다.', '04-flow-control.html'],
+    ['Zero-load latency', '무부하 지연', '경합이 전혀 없을 때의 패킷 지연. T₀ = H·t_r + H·t_w + L/b.', '08-performance.html']
+  ];
+  const box = document.getElementById('gloss'), q = document.getElementById('q');
+  function render() {
+    const s = q.value.trim().toLowerCase();
+    box.innerHTML = '';
+    G.filter((g) => !s || g.join(' ').toLowerCase().includes(s)).forEach(([en, ko, d, href]) => {
+      const it = NB.el('div', { class: 'gloss-item' });
+      it.innerHTML = '<dt>' + ko + '<span class="en">' + en + '</span><a href="' + href + '">관련 장 →</a></dt><dd>' + d + '</dd>';
+      box.append(it);
+    });
+    if (!box.children.length) box.innerHTML = '<p class="muted">검색 결과가 없습니다.</p>';
+  }
+  q.addEventListener('input', render);
+  render();
+});
+</script>
+</body>
+</html>

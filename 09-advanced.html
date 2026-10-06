@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>09. 고급 주제와 실제 칩 — NoC Book</title>
+<meta name="description" content="Bufferless 디플렉션 라우팅, QoS, 에너지 모델, 3D NoC와 칩렛, 상용 매니코어 칩의 NoC 사례를 살펴봅니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="9">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 09</div>
+  <h1>고급 주제와 실제 칩</h1>
+  <p class="lead">기본기를 갖췄으니 연구와 산업의 최전선을 둘러봅시다. 버퍼를 아예 없앤 라우터, 전력이 지배하는 설계 공간, 칩을 쌓고 쪼개는 3D·칩렛 시대의 네트워크, 그리고 실제 상용 칩들이 어떤 선택을 했는지 살펴봅니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 30분</span><span class="pill">🧪 실험 3개</span></div>
+</header>
+
+<h2 id="bufferless">Bufferless 디플렉션 라우팅</h2>
+<p>5장에서 버퍼가 라우터 면적과 전력의 큰 몫을 차지한다는 것을 보았습니다. 그렇다면 버퍼를 없애면 어떨까요? <span class="term">디플렉션(deflection) 라우팅</span>에서는 라우터에 도착한 플릿이 <b>매 사이클 반드시 어딘가로 나가야</b> 합니다. 원하는 방향(생산적 포트)이 이미 다른 플릿에게 배정되었다면, 남은 아무 포트로나 "튕겨 나갑니다(deflect)". 들어온 링크 수와 나가는 링크 수가 같으므로 항상 갈 곳이 있습니다. BLESS(Moscibroda &amp; Mutlu, ISCA 2009)는 <b>가장 오래된 플릿 우선(oldest-first)</b> 규칙으로 라이브락(livelock)을 막습니다. 가장 오래된 플릿은 절대 디플렉션되지 않으므로 결국 도착합니다.</p>
+
+<div class="widget wide" id="w-bless" data-title="디플렉션 라우팅 시뮬레이션: 버퍼 없는 라우터">
+  <div class="foot">단일 플릿 패킷, 8×8 메시. 빨간 점은 이번 사이클에 디플렉션된 플릿입니다. 부하가 낮으면 버퍼 라우터와 비슷한 지연을 내지만, 부하가 높아지면 디플렉션이 연쇄적으로 늘어 링크 대역폭을 낭비합니다. 비교 곡선은 같은 조건(단일 플릿 패킷, 라우터 1사이클 + 링크 1사이클)의 VC 버퍼 라우터(2 VC × 4)입니다. 디플렉션 모델은 라우터+링크를 합쳐 홉당 1사이클로 단순화했으므로 절대값보다 곡선의 모양을 비교하세요.</div>
+</div>
+<p>정리하면 bufferless 라우터는 <b>저부하에서 면적·전력을 크게 아끼는 대신 고부하 처리량을 희생</b>합니다. 대부분의 실제 칩 트래픽은 평균 주입률이 낮기 때문에(캐시 미스는 생각보다 드뭅니다) 매력적인 선택지가 될 수 있습니다. 이후 CHIPPER, MinBD 같은 후속 연구가 하드웨어 복잡도와 고부하 성능을 개선했습니다.</p>
+
+<h2 id="qos">QoS와 공정성</h2>
+<p>라운드 로빈 중재는 <b>각 라우터에서는</b> 공정하지만, 네트워크 전체로 보면 그렇지 않습니다. 메시의 중앙으로 향하는 트래픽을 생각해 보세요. 먼 곳에서 온 패킷은 여러 라우터에서 중재를 거칠 때마다 "1/2, 1/4, 1/8…"의 몫을 받으므로, 가까운 노드에 비해 대역폭이 기하급수적으로 줄어듭니다(parking-lot 문제). 해결책으로는 패킷의 나이(age)를 실어 보내 오래된 패킷을 우선하는 <b>age-based arbitration</b>, 흐름별 대역폭을 보장하는 <b>Globally Synchronized Frames(GSF)</b>, 실시간 트래픽을 위한 <b>우선순위 VC</b> 등이 있습니다. 8장 시뮬레이터에서 Hotspot 트래픽을 걸고 출발지 대기열이 어느 노드에서 먼저 자라는지 관찰해 보세요.</p>
+
+<h2 id="energy">에너지: 홉 수냐, 전선 길이냐</h2>
+<p>NoC가 쓰는 에너지는 크게 <b>라우터 통과 에너지</b>(버퍼 읽기/쓰기, 크로스바, 할당)와 <b>링크 에너지</b>(전선 충방전, 길이에 비례)로 나뉩니다. 고차수 토폴로지는 라우터 수를 줄이지만 라우터 하나가 커지고, 패킷이 실제로 이동하는 전선 거리는 (최소 라우팅이라면) 토폴로지와 무관하게 대략 맨해튼 거리입니다.</p>
+
+<div class="widget" id="w-energy" data-title="토폴로지별 패킷당 에너지 (개념적 모델)">
+  <div class="foot">라우터 에너지는 5포트 기준값에 \(0.6 + 0.4(p/5)^2\)를 곱해 포트 수 \(p\)에 따른 크로스바 증가를 근사했습니다. 링크 에너지는 실제 전선 이동 거리(타일 수 × 타일 크기)에 비례합니다. 숫자 자체보다 <b>어느 항이 지배하는지</b>, 그리고 그것이 파라미터에 따라 어떻게 뒤바뀌는지를 보세요.</div>
+</div>
+
+<h2 id="3d">3D NoC, 칩렛, 그리고 그 너머</h2>
+<p>무어의 법칙이 느려지면서 칩은 <b>쌓이고(3D stacking)</b>, <b>쪼개지고(chiplet)</b> 있습니다. 3D 적층에서는 실리콘 관통 전극(TSV)이나 하이브리드 본딩으로 층 사이를 짧은 수직 링크로 연결할 수 있어, 같은 노드 수에서 평균 홉 수가 줄어듭니다. 칩렛 시스템에서는 각 칩렛 내부의 NoC와, 실리콘 인터포저나 패키지 기판을 통한 칩렛 간 네트워크가 <b>계층적으로</b> 연결됩니다. 이때 칩렛 경계를 넘는 링크는 대역폭이 낮고 지연과 에너지가 커서, 토폴로지와 데드락 회피를 시스템 전체 관점에서 다시 설계해야 합니다(칩렛마다 따로 데드락이 없어도 합쳐 놓으면 데드락이 생길 수 있습니다!).</p>
+
+<div class="widget wide" id="w-3d" data-title="3D 메시: 드래그해서 돌려 보기">
+  <div class="foot">층 사이의 수직 링크(TSV)는 수평 링크보다 훨씬 짧습니다. 같은 노드 수를 2D로 펼칠 때와 3D로 쌓을 때의 평균 홉 수를 비교해 보세요. ▶를 누르면 XYZ 차원 순서 라우팅으로 패킷 하나가 이동합니다.</div>
+</div>
+
+<h3>Express 채널과 단일 사이클 멀티홉</h3>
+<p>홉 수 자체를 줄이는 대신 <b>홉당 지연</b>을 줄이는 접근도 있습니다. Express Virtual Channels(Kumar et al., ISCA 2007)는 중간 라우터의 파이프라인을 건너뛰는 가상의 "급행 차선"을 만들고, SMART(Krishna et al., HPCA 2013)는 클록 한 사이클 안에 리피터 전선으로 여러 홉을 한꺼번에 건너는 바이패스 경로를 동적으로 구성합니다. 1장의 와이어 지연 실험에서 본 것처럼, 리피터를 넣은 전선은 한 사이클에 수 mm를 갈 수 있기 때문입니다.</p>
+
+<h2 id="real-chips">실제 칩 속의 NoC</h2>
+<p>연구용 프로토타입에서 시작한 NoC는 이제 서버 CPU, GPU, AI 가속기, 모바일 SoC 어디에나 있습니다. 대표적인 사례를 시간 순으로 살펴봅시다(공개 문헌 기준의 개략적 설명입니다).</p>
+<div class="table-wrap">
+<table class="data">
+  <tr><th>연도</th><th>칩/시스템</th><th>NoC 특징</th></tr>
+  <tr><td>2002</td><td>MIT RAW</td><td>16타일 4×4 메시. 컴파일러가 스케줄하는 정적 네트워크와 동적 네트워크를 함께 가진 타일형 프로세서의 선구자.</td></tr>
+  <tr><td>2007</td><td>Intel 80-core Teraflops Research Chip (Polaris)</td><td>8×10 메시, 타일마다 5포트 라우터. NoC의 성능·전력 특성을 실리콘으로 측정한 대표적 연구 칩.</td></tr>
+  <tr><td>2007</td><td>Tilera TILE64</td><td>8×8 메시 위에 용도별로 분리된 <b>5개의 물리 네트워크</b>(iMesh). 상용 매니코어의 초기 사례.</td></tr>
+  <tr><td>2009</td><td>Intel Single-chip Cloud Computer (SCC)</td><td>48코어(24타일) 6×4 메시. 캐시 일관성 대신 메시지 전달 버퍼를 두어 소프트웨어 메시지 패싱을 실험.</td></tr>
+  <tr><td>2016–2017</td><td>Intel Xeon Phi (KNL), Xeon Scalable (Skylake-SP)</td><td>서버 CPU가 링 버스에서 <b>2D 메시</b>로 전환. 코어·LLC 슬라이스·메모리 컨트롤러·I/O가 메시 정류장에 배치.</td></tr>
+  <tr><td>2016~</td><td>Arm CoreLink CMN-600/700 등</td><td>라이선스 가능한 일관성 메시 인터커넥트. AMBA CHI 프로토콜, 메시 크기 구성 가능.</td></tr>
+  <tr><td>2017~</td><td>AMD Infinity Fabric</td><td>칩렛(CCD)과 I/O 다이를 잇는 계층적 패브릭. 칩렛 시대의 대표적인 계층형 인터커넥트.</td></tr>
+  <tr><td>2019~</td><td>Cerebras Wafer-Scale Engine</td><td>웨이퍼 전체에 걸친 거대한 2D 메시로 수십만 개의 코어를 연결.</td></tr>
+  <tr><td>2020s</td><td>Google TPU v4 Pod 등 AI 시스템</td><td>칩 간 ICI 링크로 3D 토러스를 구성하고, 광 회로 스위치로 토폴로지를 재구성. NoC 개념이 칩 밖으로 확장된 사례.</td></tr>
+</table>
+</div>
+<p>공통된 흐름이 보입니다. 규모가 커지면 링 → 메시로, 칩이 커지면 칩렛 + 계층형 네트워크로, 그리고 시스템이 커지면 같은 원리(토폴로지, 라우팅, 플로우 컨트롤, 데드락 회피)가 칩 밖의 네트워크로 확장됩니다.</p>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>디플렉션 라우팅은 버퍼를 없애 면적·전력을 줄이지만 고부하에서 처리량이 떨어진다. 가장 오래된 플릿 우선으로 라이브락을 막는다.</li>
+    <li>라우터별 공정성은 전역 공정성을 보장하지 않는다(parking-lot 문제). Age 기반 중재, GSF 등이 해결책이다.</li>
+    <li>에너지는 라우터 통과 횟수와 전선 길이의 균형이다. 고차수 토폴로지는 라우터 수를 줄이지만 라우터당 비용이 크다.</li>
+    <li>3D 적층과 칩렛은 계층형 네트워크와 시스템 수준의 데드락 회피를 요구한다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="0">
+  <div class="q">디플렉션 라우터에서 "모든 플릿이 매 사이클 나갈 곳이 있다"가 보장되는 이유는?</div>
+  <div class="opts">
+    <button class="opt">라우터에 들어오는 링크 수와 나가는 링크 수가 같고, 주입은 빈 출력이 있을 때만 하기 때문</button>
+    <button class="opt">라우터마다 숨겨진 버퍼가 있기 때문</button>
+    <button class="opt">모든 플릿이 같은 방향으로 가기 때문</button>
+  </div>
+  <div class="exp">한 사이클에 라우터로 들어올 수 있는 플릿은 최대 입력 링크 수(메시 내부 라우터는 4)이고 출력 링크도 4개입니다. 새 패킷 주입은 이번 사이클에 도착한 플릿이 4개 미만일 때만 허용되므로 항상 플릿 수 ≤ 출력 수가 유지됩니다.</div>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/noc.js"></script>
+<script src="assets/js/ch09.js"></script>
+</body>
+</html>

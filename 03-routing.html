@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03. 라우팅 — NoC Book</title>
+<meta name="description" content="XY 차원 순서 라우팅, Turn model(West-First, North-Last, Negative-First), Odd-Even, O1TURN, Valiant 라우팅을 직접 경로를 그려 보며 비교합니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="3">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 03</div>
+  <h1>라우팅: 길을 고르는 법</h1>
+  <p class="lead">토폴로지가 도로망이라면 라우팅은 내비게이션입니다. 가장 단순한 내비게이션은 "항상 같은 길"을 알려 주고, 똑똑한 내비게이션은 막히는 길을 피해 갑니다. 하지만 칩 안에서는 똑똑함에 대가가 따릅니다. 잘못 고른 길들이 서로 꼬리를 물면 네트워크 전체가 멈추는 <b>데드락</b>이 생기기 때문입니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 35분</span><span class="pill">🧪 실험 3개</span></div>
+</header>
+
+<h2 id="taxonomy">라우팅 알고리즘의 분류</h2>
+<p>라우팅 알고리즘은 <b>경로 선택에 무엇을 고려하느냐</b>에 따라 세 가지로 나뉩니다.</p>
+<figure class="figure">
+<svg class="vis" viewBox="0 0 760 250" role="img" aria-label="라우팅 알고리즘 분류도" style="width:100%;height:auto">
+  <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--text-mute)"/></marker></defs>
+  <rect x="300" y="10" width="160" height="40" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+  <text x="380" y="35" text-anchor="middle" font-weight="700" fill="var(--accent)" font-size="15">라우팅 알고리즘</text>
+  <path d="M380 50 V70 H120 V92 M380 70 H380 V92 M380 70 H640 V92" fill="none" stroke="var(--text-mute)" stroke-width="1.5" marker-end="url(#ah3)"/>
+  <g font-size="14">
+    <rect x="30" y="94" width="180" height="56" rx="10" fill="var(--surface)" stroke="var(--c1)" stroke-width="1.8"/>
+    <text x="120" y="117" text-anchor="middle" font-weight="700" fill="var(--c1)">결정적 (Deterministic)</text>
+    <text x="120" y="138" text-anchor="middle" fill="var(--text-soft)" font-size="12.5">같은 (출발,도착) → 항상 같은 경로</text>
+    <rect x="290" y="94" width="180" height="56" rx="10" fill="var(--surface)" stroke="var(--c2)" stroke-width="1.8"/>
+    <text x="380" y="117" text-anchor="middle" font-weight="700" fill="var(--c2)">무관 (Oblivious)</text>
+    <text x="380" y="138" text-anchor="middle" fill="var(--text-soft)" font-size="12.5">여러 경로 중 상태와 무관하게 선택</text>
+    <rect x="550" y="94" width="180" height="56" rx="10" fill="var(--surface)" stroke="var(--c3)" stroke-width="1.8"/>
+    <text x="640" y="117" text-anchor="middle" font-weight="700" fill="var(--c3)">적응형 (Adaptive)</text>
+    <text x="640" y="138" text-anchor="middle" fill="var(--text-soft)" font-size="12.5">네트워크 혼잡 상태를 보고 선택</text>
+  </g>
+  <g font-size="12.5" fill="var(--text-soft)" text-anchor="middle">
+    <text x="120" y="180">XY / YX (DOR)</text><text x="120" y="200">Source routing</text>
+    <text x="380" y="180">O1TURN, Valiant, ROMM</text><text x="380" y="200">(무작위화로 부하 분산)</text>
+    <text x="640" y="180">West-First, North-Last, Neg-First</text><text x="640" y="200">Odd-Even, Duato(escape VC)</text>
+  </g>
+  <path d="M40 228 H720" stroke="var(--border-strong)" stroke-width="1.5" marker-end="url(#ah3)"/>
+  <text x="40" y="246" fill="var(--text-mute)" font-size="12">단순 · 작은 하드웨어 · 데드락 회피 쉬움</text>
+  <text x="720" y="246" fill="var(--text-mute)" font-size="12" text-anchor="end">부하 분산 · 고장 내성 · 복잡</text>
+</svg>
+<figcaption>라우팅 알고리즘의 분류. 오른쪽으로 갈수록 경로 선택의 자유도가 커지지만 하드웨어와 데드락 회피가 어려워집니다.</figcaption>
+</figure>
+<p>또 다른 축으로 <b>최소(minimal)</b> 라우팅은 항상 최단 경로만 쓰고, <b>비최소(non-minimal)</b> 라우팅은 부하 분산이나 고장 회피를 위해 돌아가기도 합니다. 그리고 경로를 출발지 NI가 패킷 헤더에 모두 적어 넣는 <b>소스 라우팅</b>과, 각 라우터가 목적지를 보고 다음 홉만 결정하는 <b>분산 라우팅</b>이 있습니다. NoC는 대부분 분산 라우팅을 조합 논리나 작은 테이블로 구현합니다.</p>
+
+<h2 id="dor">차원 순서 라우팅 (XY)</h2>
+<p><span class="term">XY 라우팅</span>은 먼저 X 좌표를 맞춘 뒤 Y 좌표를 맞춥니다. 각 라우터에서 필요한 연산은 좌표 비교 두 번뿐이라 하드웨어가 매우 작고, 아래에서 보듯이 <b>2D Mesh에서 데드락이 원천적으로 불가능</b>합니다. 그래서 상용 NoC의 기본값입니다.</p>
+<pre><code>if   (dst.x &gt; cur.x) return EAST;
+elif (dst.x &lt; cur.x) return WEST;
+elif (dst.y &gt; cur.y) return SOUTH;   // 화면 좌표: y가 아래로 증가
+elif (dst.y &lt; cur.y) return NORTH;
+else                 return LOCAL;</code></pre>
+<p>단점은 <b>경로 다양성이 0</b>이라는 것입니다. 두 노드 사이에 최단 경로가 수십 개 있어도 XY는 그중 하나만 씁니다. 특정 트래픽 패턴(예: transpose)에서는 일부 링크에 부하가 몰려 처리량이 크게 떨어집니다.</p>
+
+<div class="widget wide" id="w-paths" data-title="경로 탐험기: 알고리즘별로 허용되는 경로 보기">
+  <div class="foot">링크의 굵기는 패킷이 그 링크를 지날 확률입니다(적응형은 갈림길마다 균등하게 분배한다고 가정). <b>클릭</b>으로 출발지와 목적지를 차례로 지정하세요. 오른쪽 아이콘은 알고리즘이 금지하는 회전(빨간 ✕)을 보여줍니다. Odd-Even을 고르면 짝수/홀수 열이 음영으로 표시됩니다.</div>
+</div>
+
+<h2 id="turn-model">Turn Model: 회전을 금지해 데드락 막기</h2>
+<p>2D Mesh에서 패킷이 할 수 있는 회전(turn)은 8가지입니다. 이 8개의 회전은 시계 방향 사이클 4개와 반시계 방향 사이클 4개로 나뉩니다. 만약 네 패킷이 동시에 같은 방향으로 회전하며 서로의 버퍼를 기다리면 <b>순환 대기</b>가 생깁니다 — 데드락입니다(6장에서 직접 만들어 봅니다).</p>
+<p>Glass와 Ni(1992)의 <span class="term">Turn model</span>은 "각 사이클에서 회전 하나씩만 금지하면 사이클을 끊을 수 있다"는 아이디어입니다. XY 라우팅은 4개의 회전(Y→X)을 금지해 지나치게 보수적입니다. 2개만 금지해도 데드락을 막을 수 있으며, 남은 6개의 회전을 활용해 적응형 라우팅이 가능합니다. 단, <b>아무 2개나 금지해서는 안 됩니다</b>. 세 번의 오른쪽 회전은 한 번의 왼쪽 회전과 같기 때문입니다! 아래 실험으로 확인하세요.</p>
+
+<div class="widget wide" id="w-turn" data-title="Turn Model 검사기: 회전을 금지하고 채널 의존성 사이클 찾기">
+  <div class="foot">검사기는 6×6 Mesh의 모든 채널(방향 링크) 사이에 "이 채널에서 저 채널로 회전이 허용되는가"로 <b>채널 의존성 그래프(CDG)</b>를 만들고, 사이클이 있는지 깊이 우선 탐색으로 찾습니다. 사이클이 발견되면 메시 위에 빨간 경로로 표시됩니다. 비최소 경로까지 포함한 검사이므로 엄격한 기준입니다.</div>
+</div>
+
+<p>16가지 조합 중 12가지는 데드락이 없고, 대칭성을 고려하면 본질적으로 세 가지 알고리즘으로 정리됩니다.</p>
+<ul>
+  <li><b>West-First</b>: 서쪽으로 가야 하면 <i>맨 처음에</i> 다 간다. 그 뒤에는 동/남/북 중 적응적으로 선택.</li>
+  <li><b>North-Last</b>: 북쪽 이동은 <i>마지막에</i>만 한다. 북쪽으로 가기 시작하면 더 이상 회전 불가.</li>
+  <li><b>Negative-First</b>: 음의 방향(서, 남)을 먼저 다 가고, 그 뒤 양의 방향(동, 북)으로 적응적으로 이동.</li>
+</ul>
+<p>이 알고리즘들의 약점은 <b>적응성이 불균등</b>하다는 점입니다. 예를 들어 West-First는 동쪽으로 가는 패킷에게는 완전한 적응성을 주지만, 서쪽으로 가는 패킷에게는 XY와 똑같이 결정적입니다.</p>
+
+<h2 id="oddeven">Odd-Even Turn Model</h2>
+<p>Chiu(2000)의 <span class="term">Odd-Even</span> 라우팅은 회전 금지를 <b>열(column)의 짝/홀에 따라 다르게</b> 적용합니다.</p>
+<ul>
+  <li>규칙 1: <b>짝수 열</b>에서는 동→북, 동→남 회전 금지.</li>
+  <li>규칙 2: <b>홀수 열</b>에서는 북→서, 남→서 회전 금지.</li>
+</ul>
+<p>어떤 사이클이든 가장 오른쪽 열에서 동→(북/남) 회전과 (북/남)→서 회전이 같은 열에서 일어나야 하는데, 그 열은 짝수이거나 홀수이므로 둘 중 하나는 반드시 금지됩니다. 그래서 가상 채널 없이도 데드락이 없고, 방향에 따른 적응성 편중도 West-First보다 훨씬 고릅니다. 경로 탐험기에서 Odd-Even을 고르고 여러 출발/도착 쌍을 시험해 보세요.</p>
+
+<h2 id="oblivious">무작위화: O1TURN과 Valiant</h2>
+<p><span class="term">O1TURN</span>(Seo et al., 2005)은 패킷마다 XY 또는 YX를 무작위로 고릅니다. XY와 YX를 섞으면 데드락이 가능하므로 두 종류의 패킷을 <b>서로 다른 가상 채널 클래스</b>에 분리합니다. 상태를 보지 않는(oblivious) 단순한 방법이지만 많은 패턴에서 처리량을 크게 높입니다.</p>
+<p><span class="term">Valiant</span> 라우팅은 극단적인 방법입니다. 목적지와 상관없이 먼저 <b>무작위 중간 노드</b>로 간 다음, 거기서 목적지로 갑니다. 어떤 트래픽 패턴이든 균등 무작위 트래픽 두 번으로 바꿔 버리므로 최악의 패턴에 강하지만, 평균 경로가 두 배 가까이 길어져 평범한 트래픽에서는 손해입니다.</p>
+
+<h2 id="race">실전 비교: Transpose 트래픽에서의 XY vs 적응형</h2>
+<p>Transpose 패턴은 노드 \((x,y)\)가 \((y,x)\)로 보냅니다. XY 라우팅에서는 모든 패킷이 대각선 근처에서 회전해야 해서 일부 링크에 부하가 몰립니다. 아래 두 시뮬레이션은 같은 트래픽과 같은 주입률에서 라우팅만 다릅니다. 링크 색이 붉을수록 바쁜 링크입니다.</p>
+
+<div class="widget wide" id="w-race" data-title="나란히 비교: 같은 트래픽, 다른 라우팅 (8×8 Mesh, 사이클 단위 시뮬레이션)">
+  <div class="foot">8장의 시뮬레이터 엔진을 사용합니다: 2 VC × 4플릿 버퍼, 4플릿 패킷, 라우터 지연 2사이클 + 링크 1사이클. 라우터 옆 파란 막대는 출발지 대기열 길이입니다. 주입률을 바꾸면 처음부터 다시 시작합니다.</div>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>XY(차원 순서) 라우팅은 단순하고 데드락이 없지만 경로 다양성이 없어 특정 패턴에서 부하가 몰린다.</li>
+    <li>Turn model은 각 회전 사이클에서 하나씩 회전을 금지해 VC 없이도 데드락 없는 적응형 라우팅을 만든다. 단, 금지 조합에 따라 실패할 수 있다.</li>
+    <li>Odd-Even은 열의 짝/홀로 금지 규칙을 바꿔 적응성을 고르게 분배한다.</li>
+    <li>O1TURN·Valiant 같은 무작위화 기법은 상태 정보 없이 부하를 분산하며, 보통 VC 클래스 분리로 데드락을 피한다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="2">
+  <div class="q">(1,1)에서 (4,3)으로 가는 최소 경로는 몇 개이며, XY 라우팅은 그중 몇 개를 쓸까?</div>
+  <div class="opts">
+    <button class="opt">5개, 1개</button>
+    <button class="opt">6개, 2개</button>
+    <button class="opt">10개, 1개</button>
+  </div>
+  <div class="exp">Δx=3, Δy=2. 최소 경로 수는 \(\binom{5}{2}=10\). XY는 결정적이므로 1개만 씁니다. 경로 탐험기에서 '완전 적응형'을 선택하면 10개가 표시됩니다.</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">West-First 라우팅에서 목적지가 출발지의 북서쪽에 있다면?</div>
+  <div class="opts">
+    <button class="opt">서쪽으로 먼저 다 간 뒤 북쪽으로 간다 — 경로가 1개뿐이다.</button>
+    <button class="opt">서쪽과 북쪽 중 혼잡하지 않은 쪽을 매번 고른다.</button>
+    <button class="opt">북쪽으로 먼저 간 뒤 서쪽으로 간다.</button>
+  </div>
+  <div class="exp">West-First는 서쪽으로 가는 회전(북→서, 남→서)을 금지합니다. 따라서 서쪽 이동은 경로의 맨 처음에 모두 끝내야 하고, 북서쪽 목적지에는 단일 경로만 남습니다.</div>
+</div>
+
+</article>
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/noc.js"></script>
+<script src="assets/js/ch03.js"></script>
+</body>
+</html>
