@@ -1,4 +1,4 @@
-/* LinkBook configuration consumed by ../../assets/js/common.js */
+/* LinkBook configuration consumed by ../../shared/js/common.js */
 window.NB_BOOK = {
   name: 'LinkBook',
   tagline: '인터랙티브 칩 인터페이스 & 링크 교과서',
