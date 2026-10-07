@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>부록: 용어집 & 참고문헌 — LinkBook</title>
+<meta name="description" content="칩 인터페이스·링크 용어집, 핵심 수식, 참고문헌.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="assets/css/link.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<style>
+  .gloss-search { width: 100%; font: inherit; font-size: 16px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); margin: 8px 0 16px; }
+  .gloss { display: grid; gap: 10px; }
+  .gloss-item { border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; background: var(--surface); }
+  .gloss-item dt { font-weight: 700; }
+  .gloss-item dt .en { color: var(--text-mute); font-weight: 500; font-size: 14px; margin-left: 6px; }
+  .gloss-item dt a { font-size: 12px; margin-left: 8px; font-weight: 500; }
+  .gloss-item dd { margin: 4px 0 0; color: var(--text-soft); font-size: 15px; line-height: 1.65; }
+  .refs li { margin: .5em 0; font-size: 15px; }
+</style>
+<article class="article" data-chapter="A">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Appendix</div>
+  <h1>용어집 &amp; 참고문헌</h1>
+  <p class="lead">이 책에 나온 용어와 핵심 수식을 모았습니다. 검색창에 한글이나 영어로 입력해 보세요.</p>
+</header>
+
+<h2 id="glossary">용어집</h2>
+<input class="gloss-search" id="q" type="search" placeholder="예: CDR, 아이, PAM4, 8b/10b, 메타안정…" aria-label="용어 검색">
+<dl class="gloss" id="gloss"></dl>
+
+<h2 id="formulas">핵심 수식 모음</h2>
+<div class="table-wrap">
+<table class="data">
+  <tr><th>항목</th><th>수식</th><th>장</th></tr>
+  <tr><td>실효 대역폭</td><td>\(N_{lane}\cdot R_{baud}\cdot\log_2 M\cdot\eta\)</td><td>1</td></tr>
+  <tr><td>나이퀴스트 주파수</td><td>\(f_N = R_{baud}/2\)</td><td>1, 3</td></tr>
+  <tr><td>특성 임피던스 · 전파 속도</td><td>\(Z_0=\sqrt{L/C},\; v = 1/\sqrt{LC}\)</td><td>2</td></tr>
+  <tr><td>반사 계수</td><td>\(\Gamma = (Z_L - Z_0)/(Z_L + Z_0)\)</td><td>2</td></tr>
+  <tr><td>첫 진행파</td><td>\(V_1 = V_S\,Z_0/(R_S+Z_0)\)</td><td>2</td></tr>
+  <tr><td>ISI (선형 채널)</td><td>\(y[n]=h_0x[n]+\sum_{k\ne0}h_kx[n-k]\)</td><td>3</td></tr>
+  <tr><td>피크 왜곡 아이 높이</td><td>\(2(h_0-\sum_{k\ne0}|h_k|)\)</td><td>3</td></tr>
+  <tr><td>TX FFE</td><td>\(x[n]=\sum_k c_k d[n-k],\; \sum|c_k|=1\)</td><td>4</td></tr>
+  <tr><td>DFE</td><td>\(y'[n]=y[n]-\sum_k b_k\hat d[n-k]\)</td><td>4</td></tr>
+  <tr><td>PAM4 SNR 손해</td><td>\(20\log_{10}3 \approx 9.5\) dB</td><td>5</td></tr>
+  <tr><td>총 지터 (듀얼 디랙)</td><td>\(TJ = DJ + 2Q(\text{BER})\,\sigma_{RJ}\)</td><td>6</td></tr>
+  <tr><td>BER (NRZ, 가우시안)</td><td>\(\text{BER}=Q(A/\sigma)\)</td><td>7</td></tr>
+  <tr><td>Go-Back-N 효율 (근사)</td><td>\(\min(1, W/2D)\cdot(1-p)/(1+2pD)\)</td><td>7</td></tr>
+  <tr><td>동기화기 MTBF</td><td>\(e^{t_r/\tau}/(T_w f_{clk} f_{data})\)</td><td>8</td></tr>
+  <tr><td>I/O 전력</td><td>\(P = BW\times E_{bit}\)</td><td>9</td></tr>
+</table>
+</div>
+
+<h2 id="refs">참고문헌 &amp; 더 읽을거리</h2>
+<h3>교과서</h3>
+<ul class="refs">
+  <li>W. J. Dally, J. W. Poulton. <i>Digital Systems Engineering</i>. Cambridge University Press, 1998. — 신호, 전송선로, 타이밍, 동기화의 고전.</li>
+  <li>H. Johnson, M. Graham. <i>High-Speed Digital Design: A Handbook of Black Magic</i>. Prentice Hall, 1993. — 반사·종단·크로스토크의 실무 감각.</li>
+  <li>E. Bogatin. <i>Signal and Power Integrity — Simplified</i>, 3rd ed. Prentice Hall, 2018.</li>
+  <li>S. H. Hall, H. L. Heck. <i>Advanced Signal Integrity for High-Speed Digital Designs</i>. Wiley, 2009.</li>
+  <li>B. Razavi. <i>Design of Integrated Circuits for Optical Communications</i>, 2nd ed. Wiley, 2012. — CDR, 리미팅 증폭기, PLL.</li>
+</ul>
+<h3>핵심 논문 · 표준</h3>
+<ul class="refs">
+  <li>A. X. Widmer, P. A. Franaszek. “A DC-Balanced, Partitioned-Block, 8B/10B Transmission Code.” <i>IBM J. Research and Development</i>, 1983.</li>
+  <li>J. D. H. Alexander. “Clock Recovery from Random Binary Signals.” <i>Electronics Letters</i>, 1975. — Alexander(뱅뱅) 위상 검출기.</li>
+  <li>R. W. Hamming. “Error Detecting and Error Correcting Codes.” <i>Bell System Technical Journal</i>, 1950.</li>
+  <li>C. E. Cummings. “Simulation and Synthesis Techniques for Asynchronous FIFO Design.” SNUG, 2002.</li>
+  <li>PCI-SIG. <i>PCI Express Base Specification</i> (Rev. 1.0 ~ 7.0).</li>
+  <li>UCIe Consortium. <i>Universal Chiplet Interconnect Express Specification</i>.</li>
+  <li>JEDEC. DDR4/DDR5, LPDDR5/5X, GDDR6/7, HBM2E/HBM3 표준.</li>
+  <li>ARM. <i>AMBA AXI and ACE Protocol Specification</i>. — valid/ready 핸드셰이크 규칙.</li>
+</ul>
+
+<div class="callout note">
+  <div class="callout-title">ℹ️ 이 책의 모델에 대해</div>
+  <p>이 책의 실험은 브라우저 JavaScript로 돌아가는 교육용 모델입니다. 채널은 두 개의 극점과 느린 꼬리 경로를 합친 단순화된 선형 모델이고, DFE는 정답 비트로 피드백하는 이상적 모델이며, 지터와 노이즈는 가우시안/듀얼 디랙으로 근사했습니다. 실제 설계에는 S-파라미터 기반 채널 시뮬레이션(예: IBIS-AMI, 통계적 아이 분석)을 사용하세요. 소스 코드는 <code>assets/js/link.js</code>에 있습니다.</p>
+  <p>자매편 <a href="../index.html">NoC Book — 인터랙티브 Network-on-Chip 교과서</a>에서는 칩 안의 네트워크(토폴로지, 라우팅, 플로우 컨트롤, 데드락)를 다룹니다.</p>
+</div>
+
+</article>
+
+
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/book.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="assets/js/link.js"></script>
+<script src="assets/js/codes.js"></script>
+<script>
+NB.ready(function () {
+  const G = [
+    ['8b/10b', '8b/10b 인코딩', '8비트를 10비트로 바꿔 런 길이 ≤ 5와 DC 균형을 보장하는 라인 코드. 오버헤드 25%.', '05-signaling.html'],
+    ['64b/66b, 128b/130b', '64b/66b, 128b/130b', '2비트 동기 헤더 + 스크램블러로 전이와 균형을 확률적으로 보장하는 저오버헤드 라인 코드.', '05-signaling.html'],
+    ['AC coupling', 'AC 커플링', '직렬 커패시터로 DC 성분을 막아 송수신 공통 모드 전압을 분리하는 방식. DC 균형이 필요하다.', '05-signaling.html'],
+    ['Alexander phase detector', 'Alexander 위상 검출기', '데이터 샘플과 에지 샘플을 비교해 클록이 이른지 늦은지만 알려주는 뱅뱅 위상 검출기.', '06-clocking.html'],
+    ['Bang-bang CDR', '뱅뱅 CDR', '이르다/늦다 이진 정보로 샘플링 위상을 조정하는 클록·데이터 복원 회로.', '06-clocking.html'],
+    ['Bathtub curve', '배스텁 곡선', '샘플링 위치에 따른 BER 곡선. 목표 BER에서의 아이 폭을 정의한다.', '06-clocking.html'],
+    ['BER', '비트 오류율', 'Bit Error Rate. 전송 비트 중 틀린 비트의 비율. 고속 링크는 보통 1e-12 이하(또는 FEC 전 1e-6 수준)를 요구한다.', '07-linklayer.html'],
+    ['CDC', '클록 도메인 교차', '서로 다른 클록으로 동작하는 회로 사이에 신호를 넘기는 것. 동기화기와 비동기 FIFO가 필요하다.', '08-handshake.html'],
+    ['CDR', '클록·데이터 복원', 'Clock and Data Recovery. 임베디드 클록 링크에서 데이터 전이로부터 샘플링 클록을 만들어내는 회로.', '06-clocking.html'],
+    ['Channel loss', '채널 손실', '주파수가 높을수록 커지는 신호 감쇠. 표피 효과(√f)와 유전 손실(f)이 주원인.', '03-si.html'],
+    ['Characteristic impedance', '특성 임피던스', '전송선로를 진행하는 파동의 전압/전류 비. Z₀ = √(L/C).', '02-tline.html'],
+    ['Chiplet', '칩렛', '하나의 패키지 안에서 다이-투-다이 링크로 연결되는 작은 다이들.', '09-real.html'],
+    ['CRC', '순환 중복 검사', '생성 다항식으로 나눈 나머지를 붙여 오류를 검출하는 코드. LFSR로 쉽게 구현된다.', '07-linklayer.html'],
+    ['CTLE', '연속 시간 선형 등화기', '수신단 아날로그 증폭기의 고주파 이득을 높여 채널 손실을 보상. 노이즈도 함께 증폭한다.', '04-eq.html'],
+    ['Cursor', '커서', '펄스 응답을 UI 간격으로 샘플링한 값. 메인 커서 h₀, 프리커서 h₋₁, 포스트커서 h₁…', '03-si.html'],
+    ['DFE', '판정 궤환 등화기', '이전 판정 비트에 탭을 곱해 빼서 포스트커서 ISI를 제거. 노이즈를 증폭하지 않는다.', '04-eq.html'],
+    ['Differential signaling', '차동 신호', '반대 극성의 두 선의 차이로 정보를 보내 공통 모드 노이즈를 상쇄하는 방식.', '05-signaling.html'],
+    ['Dual-Dirac model', '듀얼 디랙 모델', 'DJ를 ±DJ/2의 두 임펄스, RJ를 가우시안으로 근사하는 지터 모델.', '06-clocking.html'],
+    ['Embedded clock', '임베디드 클록', '별도 클록 선 없이 데이터 전이에 타이밍 정보를 담아 보내는 방식.', '06-clocking.html'],
+    ['Eye diagram', '아이 다이어그램', '수신 파형을 UI 단위로 겹쳐 그린 그림. 높이는 전압 마진, 폭은 타이밍 마진.', '03-si.html'],
+    ['FEC', '순방향 오류 정정', '재전송 없이 수신 측에서 오류를 정정하는 코드(해밍, RS 등).', '07-linklayer.html'],
+    ['FFE', '피드포워드 등화기', '심볼 간격 FIR 필터. TX에서 쓰면 프리/디엠퍼시스가 된다.', '04-eq.html'],
+    ['FLIT mode', 'FLIT 모드', 'PCIe 6.0의 고정 크기 블록 기반 링크 계층. FEC와 CRC를 블록 단위로 적용한다.', '09-real.html'],
+    ['Go-Back-N', 'Go-Back-N', 'NAK을 받으면 해당 번호부터 이후 패킷을 모두 재전송하는 ARQ 방식.', '07-linklayer.html'],
+    ['Gray code', '그레이 코드', '인접한 값 사이에 한 비트만 바뀌는 코드. 비동기 FIFO 포인터 동기화에 쓴다.', '08-handshake.html'],
+    ['Hamming code', '해밍 코드', '패리티 비트를 2의 거듭제곱 위치에 두어 단일 비트 오류를 정정하는 코드.', '07-linklayer.html'],
+    ['HBM', '고대역폭 메모리', 'DRAM 다이를 쌓아 인터포저 위에서 1024비트 폭으로 연결한 메모리.', '09-real.html'],
+    ['ISI', '심볼 간 간섭', '채널이 펄스를 퍼뜨려 한 심볼이 이웃 심볼의 샘플에 영향을 주는 현상.', '03-si.html'],
+    ['Jitter', '지터', '신호 에지가 이상적 시각에서 벗어난 정도. RJ와 DJ로 나뉜다.', '06-clocking.html'],
+    ['Metastability', '메타안정성', '플립플롭 입력이 셋업/홀드 창 안에서 바뀌어 출력이 중간 전압에 머무는 상태.', '08-handshake.html'],
+    ['MTBF', '평균 고장 간격', '동기화기가 메타안정 실패를 일으키는 평균 시간. e^{t_r/τ}에 비례.', '08-handshake.html'],
+    ['Nyquist frequency', '나이퀴스트 주파수', '심볼 레이트의 절반. 채널 손실의 대표 기준 주파수.', '01-link.html'],
+    ['PAM4', 'PAM4', '4개의 전압 레벨로 심볼당 2비트를 보내는 변조. 나이퀴스트 주파수를 절반으로 줄인다.', '05-signaling.html'],
+    ['PCIe', 'PCI Express', '레인 단위로 확장되는 직렬 링크 표준. 세대마다 대역폭이 약 두 배.', '09-real.html'],
+    ['Pulse response', '펄스 응답', '1 UI 펄스가 채널을 통과한 응답. 링크 분석의 기본 도구.', '03-si.html'],
+    ['Reflection coefficient', '반사 계수', 'Γ = (Z_L − Z₀)/(Z_L + Z₀). 임피던스 불연속에서 반사되는 비율.', '02-tline.html'],
+    ['Replay buffer', '재전송 버퍼', 'ACK를 받기 전까지 보낸 패킷의 사본을 보관하는 버퍼. 왕복 지연 이상이 필요하다.', '07-linklayer.html'],
+    ['Running disparity', '러닝 디스패리티', '지금까지 보낸 1과 0의 개수 차이 상태. 8b/10b가 코드 선택에 사용.', '05-signaling.html'],
+    ['Scrambler', '스크램블러', 'LFSR 의사 랜덤 수열과 XOR해 비트열을 랜덤처럼 만드는 회로.', '05-signaling.html'],
+    ['SerDes', '직렬화기/역직렬화기', '넓은 병렬 데이터를 고속 직렬 비트열로 바꾸고 되돌리는 회로.', '01-link.html'],
+    ['Skew', '스큐', '여러 신호선 사이의 도착 시간 차이.', '01-link.html'],
+    ['Skid buffer', '스키드 버퍼', 'ready를 레지스터로 끊으면서도 100% 처리량을 유지하는 2엔트리 파이프라인 버퍼.', '08-handshake.html'],
+    ['Source-synchronous', '소스 동기', '데이터와 함께 클록(스트로브)을 보내는 클로킹 방식.', '06-clocking.html'],
+    ['Termination', '종단', '선로 끝을 Z₀로 맞춰 반사를 없애는 것. 병렬/직렬/양단 종단.', '02-tline.html'],
+    ['Transmission line', '전송선로', '신호 상승 시간이 선로 지연과 비슷할 때 파동으로 다뤄야 하는 배선.', '02-tline.html'],
+    ['UCIe', 'UCIe', '칩렛 간 다이-투-다이 링크 표준. Standard/Advanced 패키지 옵션.', '09-real.html'],
+    ['UI', '단위 구간', 'Unit Interval. 심볼 하나의 시간 길이 = 1/심볼 레이트.', '01-link.html'],
+    ['valid/ready', 'valid/ready 핸드셰이크', '송신 valid와 수신 ready가 같은 에지에서 모두 1일 때 전송하는 온칩 흐름 제어 규칙.', '08-handshake.html']
+  ];
+  const box = document.getElementById('gloss'), q = document.getElementById('q');
+  function render() {
+    const s = q.value.trim().toLowerCase();
+    box.innerHTML = '';
+    G.filter((g) => !s || g.join(' ').toLowerCase().includes(s)).forEach(([en, ko, d, href]) => {
+      const it = NB.el('div', { class: 'gloss-item' });
+      it.innerHTML = '<dt>' + ko + '<span class="en">' + en + '</span><a href="' + href + '">관련 장 →</a></dt><dd>' + d + '</dd>';
+      box.append(it);
+    });
+    if (!box.children.length) box.innerHTML = '<p class="muted">검색 결과가 없습니다.</p>';
+  }
+  q.addEventListener('input', render);
+  render();
+});
+</script>
+</body>
+</html>

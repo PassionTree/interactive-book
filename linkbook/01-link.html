@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01. 링크란 무엇인가 — LinkBook</title>
+<meta name="description" content="병렬 버스와 직렬 링크, 대역폭 계산, 인터페이스 지형도를 인터랙티브 실험으로 살펴봅니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="assets/css/link.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="1">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 01</div>
+  <h1>링크란 무엇인가</h1>
+  <p class="lead">칩이 아무리 빨라도 데이터가 들어오고 나가지 못하면 소용이 없습니다. CPU와 메모리, GPU와 GPU, 칩렛과 칩렛을 잇는 <b>링크(link)</b>는 오늘날 시스템 성능과 전력의 상당 부분을 결정합니다. 이 장에서는 링크가 무엇이고, 왜 수십 개의 느린 전선 대신 몇 개의 아주 빠른 전선을 쓰게 되었는지 살펴봅니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 20분</span><span class="pill">🧪 실험 3개</span><span class="pill">선수지식: 디지털 회로 기초</span></div>
+</header>
+
+<h2 id="what">인터페이스와 링크</h2>
+<p>두 블록이 데이터를 주고받는 약속 전체를 <span class="term">인터페이스(interface)</span>라고 부릅니다. 인터페이스는 여러 층으로 이루어집니다.</p>
+<figure class="figure">
+<svg class="vis" viewBox="0 0 760 270" style="width:100%;height:auto" role="img" aria-label="링크 계층 구조">
+  <g font-size="13">
+    <rect x="20" y="20" width="230" height="230" rx="14" fill="var(--surface)" stroke="var(--border-strong)"/>
+    <rect x="510" y="20" width="230" height="230" rx="14" fill="var(--surface)" stroke="var(--border-strong)"/>
+    <text x="135" y="44" text-anchor="middle" font-weight="700" fill="var(--text)">칩 A (송신, TX)</text>
+    <text x="625" y="44" text-anchor="middle" font-weight="700" fill="var(--text)">칩 B (수신, RX)</text>
+    <g>
+      <rect x="40" y="60" width="190" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--c1)"/><text x="135" y="85" text-anchor="middle" fill="var(--text)">트랜잭션 / 프로토콜 계층</text>
+      <rect x="40" y="110" width="190" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--c2)"/><text x="135" y="135" text-anchor="middle" fill="var(--text)">링크(데이터 링크) 계층</text>
+      <rect x="40" y="160" width="190" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--c3)"/><text x="135" y="185" text-anchor="middle" fill="var(--text)">물리 계층 (PCS)</text>
+      <rect x="40" y="208" width="190" height="34" rx="8" fill="var(--accent-soft)" stroke="var(--c4)"/><text x="135" y="230" text-anchor="middle" fill="var(--text)">PMA / 아날로그 (SerDes)</text>
+    </g>
+    <g>
+      <rect x="530" y="60" width="190" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--c1)"/><text x="625" y="85" text-anchor="middle" fill="var(--text)">트랜잭션 / 프로토콜 계층</text>
+      <rect x="530" y="110" width="190" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--c2)"/><text x="625" y="135" text-anchor="middle" fill="var(--text)">링크(데이터 링크) 계층</text>
+      <rect x="530" y="160" width="190" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--c3)"/><text x="625" y="185" text-anchor="middle" fill="var(--text)">물리 계층 (PCS)</text>
+      <rect x="530" y="208" width="190" height="34" rx="8" fill="var(--accent-soft)" stroke="var(--c4)"/><text x="625" y="230" text-anchor="middle" fill="var(--text)">PMA / 아날로그 (SerDes)</text>
+    </g>
+    <path d="M230 225 C 330 225, 330 225, 380 225 S 430 225, 530 225" stroke="var(--c4)" stroke-width="3" fill="none"/>
+    <text x="380" y="215" text-anchor="middle" fill="var(--c4)" font-weight="700">채널 (PCB · 패키지 · 케이블)</text>
+    <g fill="var(--text-soft)" font-size="12">
+      <text x="380" y="80" text-anchor="middle">읽기/쓰기 요청, 메시지 (8장)</text>
+      <text x="380" y="130" text-anchor="middle">CRC · 재전송 · 플로우 컨트롤 (7장)</text>
+      <text x="380" y="180" text-anchor="middle">인코딩 · 스크램블 · 레인 정렬 (5장)</text>
+      <text x="380" y="252" text-anchor="middle">드라이버 · 등화 · CDR (2~6장)</text>
+    </g>
+  </g>
+</svg>
+<figcaption>링크 인터페이스의 계층 구조. 아래로 갈수록 아날로그 물리 현상에 가깝고, 위로 갈수록 디지털 프로토콜에 가깝습니다. 이 책은 아래에서 위로 올라갑니다.</figcaption>
+</figure>
+<p>이 책에서 <span class="term">링크</span>는 주로 두 칩(또는 칩렛) 사이의 <b>점대점(point-to-point) 물리 연결과 그 위의 데이터 링크 계층</b>을 뜻합니다. 대표적인 예가 PCIe, Ethernet SerDes, DDR/HBM 메모리 인터페이스, UCIe 같은 다이-투-다이 링크입니다. 마지막 8장에서는 칩 <i>안</i>에서 블록끼리 맞물리는 온칩 인터페이스(valid/ready, 클록 도메인 교차)도 다룹니다.</p>
+
+<h2 id="parallel-serial">병렬에서 직렬로</h2>
+<p>오랫동안 칩 사이 데이터는 <b>넓은 병렬 버스</b>로 보냈습니다. 32비트 데이터를 32개의 전선으로, 공통 클록 하나에 맞춰서요. 그런데 속도를 올리면 문제가 생깁니다. 전선마다 길이·부하·드라이버 특성이 조금씩 달라 신호가 도착하는 시각이 어긋나는 <span class="term">스큐(skew)</span>가 생기고, 비트 하나의 시간(<span class="term">UI, Unit Interval</span>)이 스큐보다 짧아지면 수신 측이 모든 비트를 같은 클록 에지로 잡을 수 없게 됩니다.</p>
+<p>해결책은 전선 수를 줄이고 각 전선을 훨씬 빠르게 돌리면서, <b>클록을 데이터 안에 묻어 보내고</b> 수신 측이 레인마다 따로 클록을 복원하는(CDR, 6장) <span class="term">고속 직렬 링크(SerDes)</span>입니다. 직렬화기(serializer)가 넓은 데이터를 한 줄로 펴고, 역직렬화기(deserializer)가 다시 접습니다.</p>
+
+<div class="widget wide" id="w-skew" data-title="병렬 버스의 스큐: 속도를 올리면 무슨 일이 생길까?">
+  <div class="foot">각 선의 지연은 평균 주변에 무작위로 흩어져 있습니다(표준편차 = 스큐 σ). 수신기는 공통 클록의 상승 에지(점선)에서 모든 선을 한꺼번에 샘플링합니다. 데이터 레이트를 올리거나 선 수를 늘리면(최악 스큐가 커짐) 샘플링 시점이 비트 경계를 넘어 오류가 생깁니다. 빨간 칸이 잘못 받은 비트입니다.</div>
+</div>
+
+<h2 id="bandwidth">대역폭 계산하기</h2>
+<p>링크의 실효 대역폭은 몇 가지 숫자의 곱입니다.</p>
+<div class="formula">$$BW_{\text{eff}} = N_{\text{lane}} \times R_{\text{baud}} \times \log_2 M \times \eta_{\text{code}} \times \eta_{\text{protocol}}$$
+<span class="caption">\(N_{\text{lane}}\): 레인 수, \(R_{\text{baud}}\): 심볼 레이트, \(M\): 변조 레벨 수(NRZ=2, PAM4=4), \(\eta\): 인코딩·프로토콜 효율</span></div>
+<p>주의할 용어가 있습니다. <b>GT/s(초당 전송 횟수)</b>는 심볼 레이트에 가까운 개념이고, 실제 데이터 비트레이트는 인코딩 오버헤드만큼 낮습니다. 예를 들어 PCIe 2.0은 5 GT/s이지만 8b/10b 인코딩 때문에 레인당 실제 데이터는 4 Gb/s입니다. 또 신호가 담아야 하는 가장 높은 기본 주파수인 <span class="term">나이퀴스트 주파수</span>는 심볼 레이트의 절반입니다. 32 GBaud NRZ 링크는 16 GHz까지 채널이 신호를 통과시켜야 합니다.</p>
+
+<div class="widget" id="w-bw" data-title="링크 대역폭 계산기">
+  <div class="foot">프로토콜 오버헤드(패킷 헤더, CRC, 흐름 제어 메시지 등)는 트래픽 종류에 따라 크게 달라 고정값으로 근사했습니다. 양방향(full-duplex) 링크는 각 방향이 이 대역폭을 독립적으로 가집니다.</div>
+</div>
+
+<h2 id="landscape">인터페이스의 지형도</h2>
+<p>링크는 얼마나 멀리 보내느냐(<b>도달 거리, reach</b>)에 따라 설계가 완전히 달라집니다. 칩 안의 1mm 전선과 데이터센터의 수 km 광섬유 사이에는 수십 가지 인터페이스가 있고, 거리가 멀수록 채널 손실이 커져 비트당 에너지가 커집니다. 아래 그림은 대략적인 지형도입니다.</p>
+
+<div class="widget wide" id="w-land" data-title="도달 거리 vs 비트당 에너지: 인터페이스 지형도 (개략)">
+  <div class="foot">각 상자는 해당 부류의 대표적인 범위를 문헌을 바탕으로 <b>개략적으로</b> 그린 것입니다. 정확한 값은 공정, 세대, 설계에 따라 크게 다르므로 자릿수(order of magnitude) 감각을 얻는 용도로만 보세요. 상자를 클릭하면 설명이 나옵니다.</div>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>인터페이스는 물리(PMA/PCS) · 링크 · 프로토콜 계층으로 나뉜다.</li>
+    <li>병렬 버스는 스큐 때문에 속도가 제한된다. 고속 직렬 링크는 레인마다 클록을 복원해 이 문제를 피한다.</li>
+    <li>실효 대역폭 = 레인 수 × 심볼 레이트 × 심볼당 비트 × 인코딩/프로토콜 효율.</li>
+    <li>도달 거리가 길수록 채널 손실이 커지고, 비트당 에너지가 증가한다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="1">
+  <div class="q">PCIe 3.0 x16 링크(8 GT/s, 128b/130b)의 한 방향 원시 데이터 대역폭은 대략?</div>
+  <div class="opts">
+    <button class="opt">8 GB/s</button>
+    <button class="opt">약 15.75 GB/s</button>
+    <button class="opt">128 GB/s</button>
+  </div>
+  <div class="exp">8 GT/s × 128/130 ≈ 7.88 Gb/s/레인 × 16레인 = 126 Gb/s ≈ 15.75 GB/s. 계산기에서 확인해 보세요.</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">56 Gb/s 링크를 PAM4로 보내면 나이퀴스트 주파수는?</div>
+  <div class="opts">
+    <button class="opt">56 GHz</button>
+    <button class="opt">28 GHz</button>
+    <button class="opt">14 GHz</button>
+  </div>
+  <div class="exp">PAM4는 심볼당 2비트이므로 심볼 레이트는 28 GBaud, 나이퀴스트 주파수는 그 절반인 14 GHz입니다. NRZ로 보내면 28 GHz가 필요합니다. 5장에서 PAM4의 장단점을 다룹니다.</div>
+</div>
+
+</article>
+
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/book.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="assets/js/link.js"></script>
+<script src="assets/js/codes.js"></script>
+<script src="assets/js/ch01.js"></script>
+
+</body>
+</html>

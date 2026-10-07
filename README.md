@@ -6,6 +6,11 @@
 
 🌐 **사이트:** https://passiontree.github.io/nocbook/
 
+📡 **자매편 LinkBook (칩 인터페이스 & 링크):** https://passiontree.github.io/nocbook/linkbook/
+— 전송선로·반사, 채널 손실과 아이 다이어그램, FFE/CTLE/DFE 등화, PAM4·8b/10b·스크램블러, 지터·CDR,
+CRC·해밍·Go-Back-N 재전송, valid/ready·메타안정성·비동기 FIFO, PCIe·HBM·UCIe (29개 실험).
+소스는 `linkbook/` (장별 본문 원본은 `linkbook/src/`, `python3 linkbook/src/build.py <src> <out> <title> <desc> <js>`로 페이지 생성).
+
 ## 구성
 
 | 장 | 내용 | 주요 실험 |

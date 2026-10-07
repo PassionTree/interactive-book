@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinkBook — 인터랙티브 칩 인터페이스 & 링크 교과서</title>
+<meta name="description" content="전송선로, 신호 무결성, 아이 다이어그램, 등화, CDR, 링크 계층, CDC, PCIe·HBM·UCIe까지 29개의 인터랙티브 실험으로 배우는 칩 인터페이스 교과서.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="assets/css/link.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<style>
+  .stat-row { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 34px; }
+  .stat-row div { font-size: 14px; color: var(--text-soft); background: color-mix(in srgb, var(--bg) 70%, transparent); border-radius: 8px; padding: 2px 6px; }
+  .stat-row b { display: block; font-size: 28px; color: var(--text); font-family: var(--mono); }
+  .path { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 16px; }
+  .path .step { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; }
+  .path .step b { display: block; }
+  .path .step span { color: var(--text-soft); font-size: 15px; }
+  .sister { margin-top: 40px; padding: 18px 22px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .sister svg { width: 44px; height: 44px; flex-shrink: 0; }
+</style>
+<section class="cover">
+  <canvas id="hero" aria-hidden="true"></canvas>
+  <div class="cover-inner">
+    <div class="kicker">AN INTERACTIVE TEXTBOOK</div>
+    <h1>칩과 칩 사이,<br><span>링크</span>의 물리학</h1>
+    <p class="sub">전송선로의 반사부터 아이 다이어그램, 등화, CDR, CRC와 재전송, 클록 도메인 교차, PCIe와 HBM까지 — 칩 인터페이스와 고속 링크를 <b>직접 만지며</b> 배우는 교과서입니다.</p>
+    <div class="cta">
+      <a class="btn primary" href="01-link.html">1장부터 시작하기 →</a>
+      <a class="btn" href="04-eq.html">👁 등화 실험실로 바로 가기</a>
+    </div>
+    <div class="stat-row">
+      <div><b>9</b>장 + 부록</div>
+      <div><b>29</b>개 인터랙티브 실험</div>
+      <div><b>32×</b>오버샘플링 신호 모델</div>
+      <div><b>0</b>설치 필요</div>
+    </div>
+  </div>
+</section>
+
+<div class="home">
+  <h2>이 책에서 배우는 것</h2>
+  <div class="feature-row">
+    <div class="feature"><b>📡 파동으로서의 전선</b><span>반사가 선로를 오가는 모습을 애니메이션으로 보고 종단으로 길들입니다.</span></div>
+    <div class="feature"><b>👁 아이 다이어그램</b><span>손실·노이즈·지터가 아이를 닫는 과정을 보고, FFE·CTLE·DFE로 다시 엽니다.</span></div>
+    <div class="feature"><b>⏱ 타이밍과 클록</b><span>배스텁 곡선, 뱅뱅 CDR, 메타안정성과 비동기 FIFO를 시뮬레이션합니다.</span></div>
+    <div class="feature"><b>🧮 실제 숫자</b><span>PCIe 세대별 대역폭, HBM의 폭, 칩렛 링크의 mm당 대역폭과 pJ/bit 전력을 계산합니다.</span></div>
+  </div>
+
+  <h2 style="margin-top:48px">목차</h2>
+  <div class="cards" id="cards"></div>
+
+  <h2 style="margin-top:56px">추천 학습 경로</h2>
+  <div class="path">
+    <div class="step"><b>신호 무결성 입문</b><span>1 → 2 → 3 → 4장. 반사, 손실, ISI, 등화의 흐름을 따라가세요.</span></div>
+    <div class="step"><b>SerDes 설계자</b><span>3장(아이) → 4장(등화 실험실) → 5장(PAM4) → 6장(CDR).</span></div>
+    <div class="step"><b>디지털/RTL 설계자</b><span>8장(valid/ready, CDC, 비동기 FIFO) → 7장(CRC·재전송).</span></div>
+    <div class="step"><b>시스템 아키텍트</b><span>1장(대역폭 계산, 지형도) → 9장(PCIe, HBM, 칩렛 전력).</span></div>
+  </div>
+
+  <div class="sister">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" fill="#3b5bdb"/><g stroke="#fff" stroke-width="1.6" opacity=".85"><path d="M9 9H23M9 16H23M9 23H23M9 9V23M16 9V23M23 9V23"/></g><g fill="#fff"><circle cx="9" cy="9" r="2.6"/><circle cx="16" cy="9" r="2.6"/><circle cx="23" cy="9" r="2.6"/><circle cx="9" cy="16" r="2.6"/><circle cx="16" cy="16" r="2.6"/><circle cx="23" cy="16" r="2.6"/><circle cx="9" cy="23" r="2.6"/><circle cx="16" cy="23" r="2.6"/><circle cx="23" cy="23" r="2.6"/></g></svg>
+    <div style="flex:1;min-width:220px"><b>자매편: NoC Book</b><br><span class="muted">칩 <i>안</i>의 네트워크 — 토폴로지, 라우팅, 플로우 컨트롤, 데드락, 사이클 단위 NoC 시뮬레이터.</span></div>
+    <a class="btn" href="../index.html">NoC Book 열기 →</a>
+  </div>
+</div>
+
+
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/book.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="assets/js/link.js"></script>
+<script src="assets/js/codes.js"></script>
+<script>
+NB.ready(function () {
+  const T = {
+    '01': '<g stroke="var(--c1)" stroke-width="3" fill="none"><path d="M30 40 H120 L130 30 H270"/><path d="M30 60 H140 L150 50 H270"/><path d="M30 80 H110 L120 70 H270"/><path d="M30 100 H150 L160 90 H270"/></g><path d="M125 20 V120 M155 20 V120" stroke="var(--c3)" stroke-dasharray="4 4"/>',
+    '02': '<path d="M20 110 H90 L95 30 H140 L145 60 H190 L195 45 H280" stroke="var(--c3)" stroke-width="3" fill="none"/><path d="M20 110 H60 L64 70 H130 L134 82 H210 L214 76 H280" stroke="var(--accent)" stroke-width="3" fill="none"/>',
+    '03': (() => { let s = ''; for (let i = 0; i < 14; i++) { const a = 25 + (i % 7) * 4, b = 115 - (i % 5) * 4; s += '<path d="M20 ' + (i % 2 ? a : b) + ' C 80 ' + (i % 2 ? a : b) + ', 100 ' + (i % 3 ? b : a) + ', 150 ' + (i % 3 ? b : a) + ' S 230 ' + (i % 2 ? b : a) + ', 280 ' + (i % 2 ? b : a) + '" stroke="var(--accent)" stroke-width="1.5" fill="none" opacity=".45"/>'; } return s; })(),
+    '04': '<path d="M30 110 C 70 110, 80 30, 110 30 S 150 90, 170 100 S 230 110, 270 110" stroke="var(--border-strong)" stroke-width="2.5" fill="none" stroke-dasharray="5 4"/><path d="M30 110 C 80 110, 90 20, 110 20 S 125 108, 140 110 S 230 110, 270 110" stroke="var(--accent)" stroke-width="3" fill="none"/>',
+    '05': '<g stroke="var(--c3)" stroke-width="3" fill="none"><path d="M20 30 H70 L80 63 H130 L140 96 H190 L200 120 H280"/></g><g stroke="var(--grid)" stroke-dasharray="3 3"><path d="M20 30 H280 M20 63 H280 M20 96 H280 M20 120 H280"/></g>',
+    '06': '<path d="M20 100 C 60 100, 70 40, 100 50 S 150 100, 180 70 S 240 30, 280 50" stroke="var(--c1)" stroke-width="2" fill="none" opacity=".6"/><path d="M20 110 L50 95 L70 80 L100 55 L130 70 L160 82 L190 70 L220 50 L250 42 L280 50" stroke="var(--c3)" stroke-width="3" fill="none"/>',
+    '07': (() => { let s = ''; const b = '1011001110100101'; for (let i = 0; i < 16; i++) s += '<rect x="' + (22 + i * 16) + '" y="55" width="14" height="30" rx="3" fill="' + (i === 6 ? 'var(--danger)' : b[i] === '1' ? 'var(--accent)' : 'var(--surface)') + '" stroke="var(--border-strong)"/>'; return s + '<text x="150" y="115" text-anchor="middle" font-size="16" fill="var(--danger)" font-weight="700">CRC ≠ 0 → NAK</text>'; })(),
+    '08': '<path d="M20 40 H60 V20 H100 V40 H140 V20 H180 V40 H220 V20 H260 V40 H280" stroke="var(--c4)" stroke-width="2" fill="none"/><path d="M20 80 H90 V60 H200 V80 H280" stroke="var(--accent)" stroke-width="2.5" fill="none"/><path d="M20 120 H130 V100 H240 V120 H280" stroke="var(--accent)" stroke-width="2.5" fill="none"/><rect x="132" y="56" width="66" height="68" fill="var(--accent-2)" opacity=".18"/>',
+    '09': '<g>' + [[30, 4], [62, 8], [94, 15], [126, 31], [158, 63], [190, 120], [222, 125]].map(([x, v], i) => '<rect x="' + x + '" y="' + (125 - v * 0.9) + '" width="24" height="' + v * 0.9 + '" rx="3" fill="' + (i >= 5 ? 'var(--c3)' : 'var(--accent)') + '"/>').join('') + '</g>',
+    'A': '<g font-family="var(--mono)" font-size="15" fill="var(--text-soft)"><text x="40" y="40">Γ = (Z_L − Z₀)/(Z_L + Z₀)</text><text x="40" y="72">BER = Q(A/σ)</text><text x="40" y="104">TJ = DJ + 2Q·σ</text></g>'
+  };
+  const box = document.getElementById('cards');
+  NB.CHAPTERS.slice(1).forEach((c) => {
+    const a = NB.el('a', { class: 'card', href: c.file });
+    a.innerHTML = '<div class="thumb"><svg viewBox="0 0 300 140" preserveAspectRatio="xMidYMid meet">' + (T[c.num] || '') + '</svg></div><div class="body"><div class="num">' + (c.num === 'A' ? 'APPENDIX' : 'CHAPTER ' + c.num) + '</div><h3>' + c.title + '</h3><p>' + c.desc + '</p></div>';
+    box.append(a);
+  });
+  // hero: a live eye diagram accumulating in the background
+  const cv = document.getElementById('hero'), ctx = cv.getContext('2d');
+  const L = NB.link, OS = 32;
+  const R = L.run({ os: OS, nbits: 3000, ch: { tau: L.tauForLoss(9, 0.1, 96, OS), beta: 0.1, tauS: 96 }, noise: 0.03, jit: { rj: 0.012 }, seed: 3 });
+  let W = 0, H = 0, k = 20;
+  function size() { const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); k = 20; }
+  size(); window.addEventListener('resize', size);
+  NB.onTheme(size);
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function trace() {
+    const x0 = W * 0.42, ww = W * 0.56, yc = H * 0.5, yh = H * 0.34;
+    const c = k * OS + R.delay;
+    ctx.strokeStyle = NB.css('--accent'); ctx.globalAlpha = NB.isDark() ? 0.1 : 0.09; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for (let s = 0; s <= 2 * OS; s++) { const i = c - OS + s; const x = x0 + s / (2 * OS) * ww, y = yc - R.wave[i] * yh; if (s) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    k++; if (k > 2990) { k = 20; ctx.clearRect(0, 0, W, H); }
+  }
+  if (reduce) { for (let i = 0; i < 600; i++) trace(); }
+  else NB.loop(cv, () => { for (let i = 0; i < 3; i++) trace(); });
+});
+</script>
+</body>
+</html>

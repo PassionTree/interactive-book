@@ -1,0 +1,85 @@
+<article class="article" data-chapter="2">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 02</div>
+  <h1>전송선로와 반사</h1>
+  <p class="lead">신호가 느릴 때 전선은 그냥 "같은 전압의 한 점"입니다. 하지만 신호의 상승 시간이 전선을 지나는 시간과 비슷해지면, 전선은 파동이 오가는 <b>전송선로(transmission line)</b>가 됩니다. 끝에서 파동이 튕겨 돌아오고, 그 반사가 다음 비트를 망칩니다. 이 장에서는 반사를 눈으로 보고, 종단(termination)으로 길들이는 법을 배웁니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 30분</span><span class="pill">🧪 실험 3개</span></div>
+</header>
+
+<h2 id="z0">특성 임피던스와 전파 속도</h2>
+<p>전송선로는 단위 길이당 인덕턴스 \(L\)과 커패시턴스 \(C\)(그리고 저항 \(R\), 컨덕턴스 \(G\))가 길이 방향으로 분포된 회로입니다. 손실이 작을 때 선로는 두 숫자로 요약됩니다.</p>
+<div class="formula">$$Z_0 = \sqrt{\frac{L}{C}}, \qquad v = \frac{1}{\sqrt{LC}} = \frac{c}{\sqrt{\varepsilon_{r,\text{eff}}}}$$
+<span class="caption">\(Z_0\): 특성 임피던스 (보통 50 Ω 단일선, 85~100 Ω 차동), \(v\): 전파 속도 (FR4 기판에서 약 15 cm/ns ≈ 6.7 ps/mm)</span></div>
+<p>\(Z_0\)는 저항처럼 Ω 단위지만 에너지를 소모하지 않습니다. 선로를 따라 진행하는 파동이 "보는" 전압 대 전류의 비율일 뿐입니다. 파동이 임피던스가 바뀌는 곳(커넥터, 비아, 끝단의 수신기)을 만나면 일부가 <b>반사</b>됩니다.</p>
+<div class="formula">$$\Gamma = \frac{Z_L - Z_0}{Z_L + Z_0}$$
+<span class="caption">반사 계수. 정합(\(Z_L=Z_0\))이면 0, 개방(\(Z_L=\infty\))이면 +1, 단락(\(Z_L=0\))이면 −1</span></div>
+
+<h2 id="bounce">반사 직접 보기</h2>
+<p>아래 실험에서 내부 저항 \(R_S\)인 드라이버가 \(t=0\)에 1 V 계단 신호를 냅니다. 처음 출발하는 파동의 크기는 \(R_S\)와 \(Z_0\)의 전압 분배로 정해지고(\(V_1 = V_S\cdot Z_0/(R_S+Z_0)\)), 이후 양 끝에서 반사가 반복됩니다. 재생 버튼을 누르면 선로 위의 전압 분포가 시간에 따라 움직입니다.</p>
+
+<div class="widget wide" id="w-tline" data-title="전송선로 반사 시뮬레이터: 선로 위 전압 · 양 끝 파형 · 바운스 다이어그램">
+  <div class="foot">무손실 선로의 해석해(반사파 중첩)를 계산합니다. 시간은 선로 편도 지연 \(T_d\) 단위입니다. 가운데 그래프의 파란 선은 드라이버 쪽(근단), 주황 선은 수신기 쪽(원단) 전압입니다. 오른쪽 바운스 다이어그램의 숫자는 각 진행파의 진폭입니다.</div>
+</div>
+
+<div class="callout tip">
+  <div class="callout-title">💡 해 볼 것</div>
+  <ul>
+    <li><b>개방 끝</b> 프리셋: 원단 전압이 두 배로 뛰었다가(\(\Gamma_L=+1\)) 근단의 반사로 오르내리며 1 V로 수렴합니다.</li>
+    <li><b>직렬 종단</b>: \(R_S=Z_0\)이면 0.5 V 파가 출발해 원단에서 두 배로 반사되어 정확히 1 V가 되고, 돌아온 반사는 근단에서 흡수됩니다. 원단은 한 번에 깨끗하게 올라갑니다.</li>
+    <li><b>링잉</b>: \(R_S\)가 작고 원단이 개방이면 반사가 오래 남아 진동합니다. 상승 시간을 늘리면(느린 에지) 링잉이 뭉개지는 것도 보세요.</li>
+  </ul>
+</div>
+
+<h2 id="termination">종단 방식 비교</h2>
+<p>반사를 없애려면 선로의 한쪽 또는 양쪽 끝을 \(Z_0\)로 맞춥니다.</p>
+<ul>
+  <li><span class="term">병렬(끝단) 종단</span> — 수신기 쪽에 \(Z_0\) 저항. 원단 반사가 0이 됩니다. 신호가 HIGH일 때 DC 전류가 흘러 전력을 소모합니다. DDR의 ODT(On-Die Termination), 고속 SerDes 수신기의 50 Ω 종단이 이 방식입니다.</li>
+  <li><span class="term">직렬(소스) 종단</span> — 드라이버 출력 임피던스를 \(Z_0\)로 맞춤. 원단에서는 반사가 일어나지만 근단에서 흡수되어 한 번만 오갑니다. DC 전류가 없지만 선로 중간 지점에서는 신호가 한동안 절반 높이에 머뭅니다(멀티드롭에 부적합).</li>
+  <li><span class="term">양단 종단</span> — 양쪽 모두 정합. 반사가 가장 적지만 수신 진폭이 절반이 됩니다. 대부분의 고속 SerDes가 TX/RX 모두 종단합니다.</li>
+</ul>
+
+<div class="widget wide" id="w-term" data-title="데이터 패턴으로 보는 종단 방식 비교">
+  <div class="foot">드라이버가 비트열을 보낼 때 수신기(원단)에서 보이는 파형입니다. 비트 시간이 선로 지연보다 짧을수록 이전 비트의 반사가 다음 비트에 겹칩니다(반사로 인한 ISI). DC 전력은 1 V 스윙, HIGH가 절반인 데이터를 가정한 종단 저항 소모 전력입니다.</div>
+</div>
+
+<h2 id="when">언제 전송선로로 봐야 할까?</h2>
+<p>신호의 상승 시간 \(t_r\)이 선로 지연 \(T_d\)에 비해 충분히 길면, 반사가 상승 중에 섞여 버려 선로를 하나의 커패시터(집중 소자)처럼 다뤄도 됩니다. 흔히 쓰는 경험칙은 다음과 같습니다.</p>
+<div class="formula">$$T_d > \frac{t_r}{6} \;\Rightarrow\; \text{전송선로 효과를 고려하라}$$
+<span class="caption">경험칙(rule of thumb). 문헌에 따라 \(t_r/4\)~\(t_r/6\) 등 다양한 기준이 쓰입니다</span></div>
+
+<div class="widget" id="w-crit" data-title="선로 길이 × 상승 시간: 집중 소자 vs 전송선로">
+  <div class="foot">드라이버 \(R_S=10\,\Omega\), \(Z_0=50\,\Omega\), 원단 개방(CMOS 입력)인 최악의 경우입니다. 오버슈트가 클수록 반사 문제가 심각합니다. 칩 안의 짧은 전선은 대부분 집중 소자 영역(RC 지배)이고, 보드·케이블은 전송선로 영역입니다.</div>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>전송선로는 특성 임피던스 \(Z_0\)와 전파 속도 \(v\)로 요약된다.</li>
+    <li>임피던스가 바뀌는 곳에서 \(\Gamma = (Z_L-Z_0)/(Z_L+Z_0)\)만큼 반사된다.</li>
+    <li>병렬 종단은 원단 반사를, 직렬 종단은 근단 재반사를 없앤다. 병렬 종단은 DC 전력을 쓴다.</li>
+    <li>선로 지연이 상승 시간의 약 1/6을 넘으면 전송선로로 다뤄야 한다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="2">
+  <div class="q">\(Z_0 = 50\,\Omega\) 선로의 끝에 150 Ω 수신기가 있다. 반사 계수는?</div>
+  <div class="opts">
+    <button class="opt">−0.5</button>
+    <button class="opt">0</button>
+    <button class="opt">+0.5</button>
+  </div>
+  <div class="exp">\(\Gamma = (150-50)/(150+50) = 0.5\). 입사파의 절반이 같은 극성으로 반사되어 원단 전압이 입사파의 1.5배로 뜁니다.</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">직렬 종단(\(R_S=Z_0\), 원단 개방) 선로의 <b>중간 지점</b> 전압은 스텝 직후 어떻게 변할까?</div>
+  <div class="opts">
+    <button class="opt">0.5 V로 올랐다가, 원단 반사가 돌아오면 1 V가 된다.</button>
+    <button class="opt">곧바로 1 V가 된다.</button>
+    <button class="opt">2 V까지 오버슈트한다.</button>
+  </div>
+  <div class="exp">0.5 V 파가 지나간 뒤, 원단에서 반사된 0.5 V 파가 되돌아오며 1 V가 됩니다. 시뮬레이터의 선로 위 전압 애니메이션에서 계단 모양을 확인하세요. 그래서 직렬 종단은 선로 중간에 수신기가 매달린 멀티드롭 버스에 쓰기 어렵습니다.</div>
+</div>
+
+</article>

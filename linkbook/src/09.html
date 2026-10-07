@@ -1,0 +1,69 @@
+<article class="article" data-chapter="9">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 09</div>
+  <h1>실제 인터페이스</h1>
+  <p class="lead">지금까지 배운 원리가 실제 표준에서 어떻게 조합되는지 살펴봅시다. 세대마다 두 배씩 빨라진 PCIe, 넓고 느린 길을 택한 HBM, 그리고 칩을 쪼개 다시 붙이는 칩렛 시대의 다이-투-다이 링크까지. 마지막으로 "대역폭 × 비트당 에너지 = 전력"이라는 냉정한 산수를 해 봅니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 25분</span><span class="pill">🧪 실험 3개</span></div>
+</header>
+
+<h2 id="pcie">PCIe: 세대마다 두 배</h2>
+<p>PCI Express는 임베디드 클록 직렬 링크의 대표입니다. 레인(차동 쌍 TX/RX 한 벌)을 x1~x16으로 묶고, 세대마다 레인당 속도를 대략 두 배로 올려 왔습니다. 그 과정에서 이 책의 거의 모든 장이 등장합니다.</p>
+<ul>
+  <li><b>Gen1·2</b>: 8b/10b 인코딩(5장) — 25% 오버헤드.</li>
+  <li><b>Gen3</b>: 128b/130b + 스크램블러로 오버헤드를 1.5%로 줄여, 레이트는 5→8 GT/s로만 올리고도 실효 대역폭을 두 배로 만듦. TX FFE 프리셋과 RX 등화 적응(4장)이 링크 학습 과정에 들어감.</li>
+  <li><b>Gen4·5</b>: 16, 32 GT/s NRZ. 채널 손실이 커져 리타이머가 흔해짐.</li>
+  <li><b>Gen6</b>: 64 GT/s에서 <b>PAM4</b>(5장)로 전환해 나이퀴스트 주파수를 Gen5와 같은 16 GHz로 유지. 대신 PAM4의 높은 원시 BER을 감당하려 경량 FEC와 고정 크기 <b>FLIT</b> 기반 링크 계층(7장)을 도입.</li>
+  <li><b>Gen7</b>: 128 GT/s PAM4.</li>
+</ul>
+
+<div class="widget wide" id="w-pcie" data-title="PCIe 세대별 대역폭과 나이퀴스트 주파수">
+  <div class="foot">x16 링크의 한 방향 원시 대역폭(인코딩 후, 프로토콜 오버헤드 전)입니다. Gen6·7은 FLIT 모드의 FEC/CRC 오버헤드를 빼기 전 값입니다. 연도는 사양 발표 기준의 대략적인 해입니다. 막대를 클릭하면 세부 정보가 나옵니다.</div>
+</div>
+
+<div class="callout note">
+  <div class="callout-title">ℹ️ CXL</div>
+  <p>CXL(Compute Express Link)은 PCIe의 물리 계층을 그대로 쓰면서, 그 위에 캐시 일관성(CXL.cache)과 메모리 접근(CXL.mem) 프로토콜을 얹은 인터페이스입니다. 같은 SerDes와 링크 기술 위에 서로 다른 프로토콜 계층(1장 그림)이 올라갈 수 있다는 좋은 예입니다.</p>
+</div>
+
+<h2 id="memory">메모리 인터페이스: 넓게 vs 빠르게</h2>
+<p>메모리 인터페이스는 지연 시간과 비용 때문에 여전히 <b>넓은 병렬 버스 + 소스 동기 클로킹</b>(6장)을 씁니다. 세대가 바뀌며 핀당 속도를 올리는 동시에(DDR, GDDR) 아예 극단적으로 넓게 가는 길(HBM)도 생겼습니다. HBM은 DRAM 다이를 쌓은 스택을 실리콘 인터포저로 프로세서 바로 옆에 붙여, 1024비트라는 엄청난 폭을 비교적 낮은 핀당 속도로 구동합니다. 짧은 전선 덕분에 비트당 에너지도 낮습니다.</p>
+
+<div class="widget wide" id="w-mem" data-title="대역폭 = 폭 × 핀당 속도: 메모리 인터페이스 비교">
+  <div class="foot">각 사각형의 가로는 데이터 버스 폭(비트), 세로는 핀당 데이터 레이트(Gb/s)이므로 <b>넓이가 대역폭</b>입니다. 값은 대표적인 공개 사양 기준(장치/스택/모듈 하나)이며 ECC 비트는 제외했습니다. 개수를 바꾸면 시스템 전체 대역폭을 계산합니다.</div>
+</div>
+
+<h2 id="chiplet">칩렛과 다이-투-다이 링크</h2>
+<p>하나의 거대한 다이 대신 여러 개의 작은 칩렛을 한 패키지에 넣는 설계가 보편화되었습니다(AMD EPYC, Intel Ponte Vecchio, 다수의 AI 가속기). 칩렛 사이의 링크는 아주 짧으므로 장거리 SerDes처럼 강한 등화나 CDR이 필요 없습니다. 대신 <b>다이 가장자리 1 mm당 얼마나 많은 대역폭을 낼 수 있는가(shoreline bandwidth density)</b>와 <b>비트당 에너지</b>가 핵심 지표가 됩니다. UCIe(Universal Chiplet Interconnect Express)는 이런 링크를 표준화해, 일반 유기 기판용(Standard)과 실리콘 인터포저/브리지용(Advanced) 패키지 옵션을 정의합니다.</p>
+
+<div class="widget wide" id="w-d2d" data-title="다이 가장자리 대역폭 밀도와 I/O 전력 계산기 (1차 모델)">
+  <div class="foot">대역폭 밀도 ≈ (1000 / 범프 피치) × 범프 열 수 × 데이터 신호 비율 × 레인당 속도 ÷ 8. 실제 표준은 클록·전원·접지 범프 배치와 모듈 구조가 더 복잡하므로 자릿수 감각을 위한 모델로 보세요. 아래쪽 전력 계산은 필요한 총 대역폭에 비트당 에너지를 곱한 값입니다.</div>
+</div>
+
+<div class="callout warn">
+  <div class="callout-title">⚡ 전력 산수</div>
+  <p>10 TB/s를 5 pJ/bit로 보내면 \(10\times10^{12}\times 8 \times 5\times10^{-12} = 400\) W입니다. 칩 하나의 전력 예산이 수백 W인 것을 생각하면, 인터페이스 효율이 시스템 설계를 좌우한다는 것을 알 수 있습니다. 1장의 지형도에서 왜 데이터가 가까이 있을수록(온칩 < 다이-투-다이 < 보드 < 광) 좋은지 다시 확인해 보세요.</p>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>PCIe는 인코딩 개선(Gen3), PAM4 + FEC + FLIT(Gen6)으로 세대마다 대역폭을 두 배로 늘려 왔다.</li>
+    <li>메모리 인터페이스는 넓은 병렬 버스와 소스 동기 클로킹을 쓰며, HBM은 극단적인 폭으로 대역폭과 에너지 효율을 얻는다.</li>
+    <li>칩렛 링크의 핵심 지표는 가장자리 mm당 대역폭과 비트당 에너지다.</li>
+    <li>I/O 전력 = 대역폭 × 비트당 에너지. 대역폭이 커질수록 pJ/bit가 시스템을 결정한다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="1">
+  <div class="q">PCIe 6.0이 64 GT/s로 속도를 두 배 올리면서도 나이퀴스트 주파수를 Gen5와 같게 유지할 수 있었던 이유는?</div>
+  <div class="opts">
+    <button class="opt">128b/130b 인코딩 덕분</button>
+    <button class="opt">PAM4로 심볼당 2비트를 보내 심볼 레이트가 32 GBaud로 같기 때문</button>
+    <button class="opt">레인 수를 두 배로 늘렸기 때문</button>
+  </div>
+  <div class="exp">PAM4는 심볼당 2비트이므로 64 Gb/s를 32 GBaud로 보냅니다. Gen5(32 GT/s NRZ)와 심볼 레이트가 같아 나이퀴스트 주파수도 16 GHz로 같습니다. 대신 PAM4의 SNR 손해를 FEC로 보완합니다.</div>
+</div>
+
+</article>
