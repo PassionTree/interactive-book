@@ -1,4 +1,4 @@
-/* LinkBook accent overrides (teal) on top of ../assets/css/style.css */
+/* LinkBook accent overrides (teal) on top of ../shared/css/style.css */
 :root { --accent: #0c8599; --accent-soft: #e0f3f5; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --accent: #3bc9db; --accent-soft: #163b41; }
