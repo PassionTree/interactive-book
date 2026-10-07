@@ -7,7 +7,8 @@
 <script>
   // NoC Book pages used to live at the site root; forward old links to nocbook/
   (function () {
-    var BASE = '/nocbook/';
+    // project-site base path, e.g. /interactive-book/ (works whatever the repository is named)
+    var BASE = '/' + location.pathname.split('/')[1] + '/';
     var m = location.pathname.match(/^(.*\/)((?:0\d-[a-z-]+|10-appendix)\.html)$/);
     if (m && m[1] === BASE) location.replace(BASE + 'nocbook/' + m[2] + location.hash);
   })();
@@ -23,7 +24,14 @@
 <main>
   <h1>404</h1>
   <p>페이지를 찾을 수 없습니다.</p>
-  <p><a href="/nocbook/">홈</a> <a href="/nocbook/nocbook/">NoC Book</a> <a href="/nocbook/linkbook/">LinkBook</a></p>
+  <p id="nav"><a href="./">홈</a> <a href="./nocbook/">NoC Book</a> <a href="./linkbook/">LinkBook</a></p>
+  <script>
+    (function () {
+      var base = '/' + location.pathname.split('/')[1] + '/';
+      var a = document.querySelectorAll('#nav a');
+      a[0].href = base; a[1].href = base + 'nocbook/'; a[2].href = base + 'linkbook/';
+    })();
+  </script>
 </main>
 </body>
 </html>

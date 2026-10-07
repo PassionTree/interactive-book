@@ -2,12 +2,12 @@
 
 칩 **안**의 네트워크와 칩 **사이**의 링크를 브라우저에서 직접 만지며 배우는 두 권의 인터랙티브 웹 교과서입니다.
 
-🌐 **홈:** https://passiontree.github.io/nocbook/
+🌐 **홈:** https://passiontree.github.io/interactive-book/
 
 | 책 | 주소 | 내용 |
 |---|---|---|
-| **NoC Book** | https://passiontree.github.io/nocbook/nocbook/ | Network-on-Chip: 토폴로지, 라우팅, 플로우 컨트롤, 라우터 구조, 데드락, 중재/할당, 사이클 단위 NoC 시뮬레이터 (실험 29개) |
-| **LinkBook** | https://passiontree.github.io/nocbook/linkbook/ | 칩 인터페이스 & 링크: 전송선로, 아이 다이어그램, FFE/CTLE/DFE, PAM4·8b/10b, 지터·CDR, CRC·재전송, CDC, PCIe·HBM·UCIe (실험 29개) |
+| **NoC Book** | https://passiontree.github.io/interactive-book/nocbook/ | Network-on-Chip: 토폴로지, 라우팅, 플로우 컨트롤, 라우터 구조, 데드락, 중재/할당, 사이클 단위 NoC 시뮬레이터 (실험 29개) |
+| **LinkBook** | https://passiontree.github.io/interactive-book/linkbook/ | 칩 인터페이스 & 링크: 전송선로, 아이 다이어그램, FFE/CTLE/DFE, PAM4·8b/10b, 지터·CDR, CRC·재전송, CDC, PCIe·HBM·UCIe (실험 29개) |
 
 ## 폴더 구조
 
