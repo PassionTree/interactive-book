@@ -1,0 +1,18 @@
+/* LinkBook accent overrides (teal) on top of ../assets/css/style.css */
+:root { --accent: #0c8599; --accent-soft: #e0f3f5; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --accent: #3bc9db; --accent-soft: #163b41; }
+}
+:root[data-theme="dark"] { --accent: #3bc9db; --accent-soft: #163b41; }
+.bits { font-family: var(--mono); font-size: 13px; letter-spacing: .5px; word-break: break-all; line-height: 1.7; }
+.bits .b1 { color: var(--c1); font-weight: 700; }
+.bits .b0 { color: var(--text-mute); }
+.bits .hl { background: var(--accent-soft); border-radius: 3px; }
+.bits .err { background: var(--danger-soft); color: var(--danger); font-weight: 800; border-radius: 3px; }
+.cell-btn { font-family: var(--mono); font-size: 13px; width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer; padding: 0; }
+.cell-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cell-btn.bad { background: var(--danger); color: #fff; border-color: var(--danger); }
+.sym-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.sym { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; background: var(--surface-2); font-family: var(--mono); font-size: 12.5px; line-height: 1.5; }
+.sym b { color: var(--text); }
+textarea.inp, input.inp { font: inherit; font-family: var(--mono); font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); width: 100%; }

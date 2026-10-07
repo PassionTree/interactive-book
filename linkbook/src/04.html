@@ -1,0 +1,96 @@
+<article class="article" data-chapter="4">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 04</div>
+  <h1>등화: FFE · CTLE · DFE</h1>
+  <p class="lead">채널이 고주파를 깎는다면, 우리가 고주파를 미리 키우거나 나중에 되살리면 됩니다. 이것이 <b>등화(equalization)</b>입니다. 송신기의 FFE, 수신기의 CTLE와 DFE는 각자 다른 방식으로 ISI를 지웁니다. 이 장의 실험실에서 닫혀 버린 아이를 직접 다시 열어 보세요.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 35분</span><span class="pill">🧪 실험 2개</span></div>
+</header>
+
+<h2 id="idea">등화의 아이디어</h2>
+<p>채널의 주파수 응답 \(H(f)\)이 고주파에서 \(-20\) dB라면, 이상적인 등화기는 그 주파수에서 \(+20\) dB를 주어 전체 응답 \(H(f)\cdot E(f)\)를 평평하게 만듭니다. 시간 영역에서 말하면, 펄스 응답의 프리커서·포스트커서를 0으로 만들어 메인 커서만 남기는 것입니다. 세 가지 대표 등화기가 있습니다.</p>
+<figure class="figure">
+<svg class="vis" viewBox="0 0 760 170" style="width:100%;height:auto" role="img" aria-label="등화기 위치">
+  <defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--text-mute)"/></marker></defs>
+  <g font-size="13" text-anchor="middle">
+    <rect x="10" y="55" width="80" height="50" rx="8" fill="var(--surface)" stroke="var(--border-strong)"/><text x="50" y="85" fill="var(--text)">데이터</text>
+    <rect x="120" y="45" width="120" height="70" rx="10" fill="var(--accent-soft)" stroke="var(--c1)" stroke-width="2"/><text x="180" y="75" font-weight="700" fill="var(--c1)">TX FFE</text><text x="180" y="95" font-size="11.5" fill="var(--text-soft)">이산 탭 FIR</text>
+    <path d="M270 80 C300 60, 320 100, 350 80 S400 60, 430 80" stroke="var(--text-mute)" stroke-width="3" fill="none"/>
+    <text x="350" y="50" fill="var(--text-soft)">채널 (손실)</text>
+    <rect x="450" y="45" width="120" height="70" rx="10" fill="var(--accent-soft)" stroke="var(--c2)" stroke-width="2"/><text x="510" y="75" font-weight="700" fill="var(--c2)">RX CTLE</text><text x="510" y="95" font-size="11.5" fill="var(--text-soft)">아날로그 고역 강조</text>
+    <rect x="600" y="45" width="120" height="70" rx="10" fill="var(--accent-soft)" stroke="var(--c3)" stroke-width="2"/><text x="660" y="75" font-weight="700" fill="var(--c3)">RX DFE</text><text x="660" y="95" font-size="11.5" fill="var(--text-soft)">판정 궤환</text>
+    <path d="M90 80 H118 M240 80 H268 M432 80 H448 M570 80 H598" stroke="var(--text-mute)" stroke-width="1.6" marker-end="url(#ah4)"/>
+    <path d="M700 115 V145 H620 V117" stroke="var(--c3)" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#ah4)"/>
+    <text x="660" y="162" font-size="11.5" fill="var(--c3)">과거 판정값 × 탭</text>
+  </g>
+</svg>
+<figcaption>고속 SerDes의 전형적인 등화기 배치. TX FFE가 송신 파형을 미리 왜곡하고, RX CTLE가 고주파를 증폭하며, DFE가 이미 판정한 비트들의 ISI를 빼 줍니다.</figcaption>
+</figure>
+
+<h2 id="ffe">TX FFE (Feed-Forward Equalizer, 프리엠퍼시스)</h2>
+<p>송신기는 각 비트를 보낼 때 이전·다음 비트 값을 조금씩 섞습니다. 탭 계수 \(c_{-1}, c_0, c_1\)에 대해</p>
+<div class="formula">$$x_{tx}[n] = c_{-1}\,d[n+1] + c_0\,d[n] + c_1\,d[n-1], \qquad |c_{-1}|+|c_0|+|c_1| = 1$$</div>
+<p>보통 \(c_1\)을 음수로 두면 값이 바뀌는 비트(전이)는 크게, 같은 값이 이어지는 비트는 작게 보내게 됩니다. 이것이 <span class="term">디엠퍼시스(de-emphasis)</span>입니다. 송신기의 최대 스윙이 제한되어 있으므로, 고주파를 키우는 대신 저주파를 줄이는 셈이라 메인 커서(신호 크기)가 작아지는 대가가 있습니다. FFE는 미래 비트를 이미 알고 있으므로 <b>프리커서도 지울 수 있는</b> 유일한 방법입니다.</p>
+
+<div class="widget wide" id="w-ffe" data-title="TX FFE 탭 조정: 펄스 응답의 커서 지우기">
+  <div class="foot">탭 합 \(|c_{-1}|+|c_0|+|c_1|=1\) 제약 아래 메인 탭은 자동으로 정해집니다. '제로 포싱'은 등화 후 \(h_{-1}\)과 \(h_1\)을 0으로 만드는 탭을 계산합니다. 왼쪽 아래는 송신 파형(디엠퍼시스로 전이 비트가 커진 모습), 오른쪽은 채널 통과 후 펄스 응답입니다.</div>
+</div>
+
+<h2 id="ctle">CTLE (Continuous-Time Linear Equalizer)</h2>
+<p>CTLE는 수신단 앞단의 아날로그 증폭기에 영점(zero)을 넣어 고주파 이득을 저주파보다 크게 만든 회로입니다. 전력이 적게 들고 모든 커서를 한꺼번에 줄여 주지만, <b>신호와 노이즈를 구분하지 못합니다</b>. 고주파 노이즈와 크로스토크도 같이 증폭되어, 피킹을 너무 올리면 오히려 아이가 나빠집니다.</p>
+<div class="formula">$$H_{CTLE}(s) = A_{DC}\,\frac{1 + s/\omega_z}{(1+s/\omega_{p1})(1+s/\omega_{p2})}, \qquad \text{피킹} = \frac{|H(f_{\text{peak}})|}{|H(0)|}$$</div>
+
+<h2 id="dfe">DFE (Decision Feedback Equalizer)</h2>
+<p>DFE는 방금 판정한 비트 값을 알고 있다는 점을 이용합니다. 이전 비트 \(\hat d[n-1]\)이 현재 샘플에 \(h_1\hat d[n-1]\)만큼 ISI를 남긴다는 것을 알면, 그만큼을 빼면 됩니다.</p>
+<div class="formula">$$y'[n] = y[n] - \sum_{k=1}^{N} b_k\,\hat d[n-k], \qquad b_k \approx h_k$$</div>
+<p>DFE는 판정값(깨끗한 디지털 값)을 피드백하므로 <b>노이즈를 증폭하지 않습니다</b>. 대신 (1) 포스트커서만 지울 수 있고, (2) 판정이 틀리면 틀린 값을 빼서 오류가 이어질 수 있으며(<b>오류 전파</b>), (3) 첫 번째 탭은 1 UI 안에 판정→곱셈→뺄셈을 끝내야 해서 회로 타이밍이 매우 빡빡합니다(이를 피하려 루프 언롤링·스페큘레이션을 씁니다).</p>
+
+<h2 id="lab">등화 실험실</h2>
+<p>이제 세 등화기를 모두 조합해 봅시다. 기본 설정은 손실이 커서 아이가 완전히 닫힌 채널입니다. 목표: 아이 높이 0.1 이상, 폭 0.3 UI 이상.</p>
+
+<div class="widget wide" id="w-lab" data-title="등화 실험실: 닫힌 아이를 다시 열어라">
+  <div class="foot">노이즈는 채널 출력(CTLE 앞)에 더해지므로 CTLE 피킹은 노이즈도 함께 증폭합니다. DFE는 정답 비트로 피드백하는 이상적 모델이며(오류 전파 없음), '자동'은 각 탭을 남은 포스트커서 값으로 맞춥니다. 위 차트는 채널·CTLE·합성 주파수 응답, 아래 왼쪽은 등화 전, 오른쪽은 등화 후의 아이입니다.</div>
+</div>
+
+<div class="callout tip">
+  <div class="callout-title">💡 실험 순서 제안</div>
+  <ol>
+    <li><b>CTLE만</b>: 피킹을 0 → 16 dB로 올려 보세요. 9 dB 근처까지는 아이가 열리지만, 그 이상은 노이즈 증폭과 과등화로 다시 나빠집니다.</li>
+    <li><b>DFE만 (1탭)</b>: 첫 포스트커서만 지워서는 긴 꼬리가 남아 아이가 거의 열리지 않습니다.</li>
+    <li><b>CTLE + DFE</b>: CTLE 6 dB로 긴 꼬리를 줄이고 DFE 1~2탭으로 가까운 포스트커서를 지우면, 각각 따로 쓸 때보다 훨씬 넓게 열립니다. 실제 SerDes가 이 조합을 쓰는 이유입니다.</li>
+    <li><b>FFE</b>: 프리커서 탭을 조금 넣어 보세요. \(h_{-1}\)은 줄지만 송신 스윙 제약 때문에 \(h_0\)도 함께 줄어 이득이 크지 않을 수 있습니다. 실제 링크는 sign-sign LMS 같은 적응 알고리즘으로 이런 균형점을 자동으로 찾습니다.</li>
+  </ol>
+  <p class="small muted" style="margin:6px 0 0">이 모델의 DFE는 정답 비트로 피드백하는 이상적인 모델이라, 탭 수를 늘리면 실제보다 좋게 나옵니다. 실제 DFE는 전력과 타이밍 때문에 보통 몇 개의 탭만 씁니다.</p>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>TX FFE는 프리/포스트커서를 모두 줄이지만 송신 스윙 제약 때문에 신호 크기를 희생한다.</li>
+    <li>CTLE는 저전력으로 고주파를 강조하지만 노이즈와 크로스토크도 함께 증폭한다.</li>
+    <li>DFE는 노이즈 증폭 없이 포스트커서를 제거하지만, 오류 전파와 1 UI 피드백 타이밍이 난제다.</li>
+    <li>실제 링크는 세 가지를 조합하고 적응 알고리즘으로 계수를 자동 조정한다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="1">
+  <div class="q">프리커서 ISI(\(h_{-1}\))를 지울 수 <b>없는</b> 등화기는?</div>
+  <div class="opts">
+    <button class="opt">TX FFE</button>
+    <button class="opt">DFE</button>
+    <button class="opt">CTLE</button>
+  </div>
+  <div class="exp">DFE는 이미 판정된 과거 비트만 사용하므로 미래 비트가 만드는 프리커서는 지울 수 없습니다. FFE는 다음 비트를 알고 송신하므로 프리커서 탭으로, CTLE는 주파수 응답 성형으로 프리커서를 줄일 수 있습니다.</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">CTLE 피킹을 계속 올렸더니 어느 순간부터 아이 높이가 오히려 줄었다. 가장 가능성 높은 이유는?</div>
+  <div class="opts">
+    <button class="opt">메인 커서가 너무 커져서</button>
+    <button class="opt">DFE 탭이 부족해서</button>
+    <button class="opt">고주파 노이즈가 신호보다 더 많이 증폭되었고, 과등화로 반대 부호의 ISI가 생겨서</button>
+  </div>
+  <div class="exp">CTLE는 노이즈와 신호를 함께 증폭하고, 과하게 피킹하면 포스트커서가 음수가 되는 과등화(over-equalization)가 일어납니다. 실험실에서 피킹을 끝까지 올려 확인해 보세요.</div>
+</div>
+
+</article>

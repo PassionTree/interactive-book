@@ -1,0 +1,74 @@
+<article class="article" data-chapter="8">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 08</div>
+  <h1>온칩 인터페이스와 클록 도메인 교차</h1>
+  <p class="lead">칩 안에서도 블록과 블록은 인터페이스로 맞물립니다. 받는 쪽이 바쁠 때 보내는 쪽을 멈추는 <b>핸드셰이크</b>, 그리고 서로 다른 클록으로 움직이는 블록 사이에서 데이터를 안전하게 넘기는 <b>클록 도메인 교차(CDC)</b>는 디지털 설계자가 가장 자주 마주치고, 가장 자주 버그를 내는 인터페이스입니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 35분</span><span class="pill">🧪 실험 4개</span></div>
+</header>
+
+<h2 id="valid-ready">valid/ready 핸드셰이크</h2>
+<p>AXI, AXI-Stream, 그리고 대부분의 온칩 스트리밍 인터페이스는 같은 규칙을 씁니다. 송신 측은 데이터가 있으면 <code>valid</code>를 올리고, 수신 측은 받을 수 있으면 <code>ready</code>를 올립니다. <b>두 신호가 같은 클록 에지에서 모두 1이면 그때 전송이 일어납니다.</b></p>
+<ul>
+  <li>송신 측은 <code>valid</code>를 올린 뒤 전송이 끝날 때까지 <code>valid</code>를 내리거나 데이터를 바꾸면 안 됩니다.</li>
+  <li><code>valid</code>는 <code>ready</code>에 의존하면 안 됩니다(조합 루프·데드락 방지). 반대로 <code>ready</code>는 <code>valid</code>를 보고 정해도 됩니다.</li>
+</ul>
+
+<div class="widget wide" id="w-vr" data-title="valid/ready 타이밍 다이어그램 편집기">
+  <div class="foot">valid와 ready 칸을 클릭해 사이클별 값을 바꿔 보세요. 초록 칸이 전송이 일어난 사이클이고, 데이터는 전송될 때마다 다음 값으로 넘어갑니다. 전송 전에 valid를 내리면 규칙 위반으로 빨갛게 표시됩니다(AXI 프로토콜 규칙).</div>
+</div>
+
+<h2 id="backpressure">파이프라인과 백프레셔</h2>
+<p>긴 데이터 경로는 여러 단의 파이프라인 레지스터로 나뉩니다. 맨 끝의 소비자가 <code>ready</code>를 내리면 그 "멈춰"가 거꾸로 전달되어야 하는데(<b>백프레셔</b>), <code>ready</code>를 조합 회로로 그대로 이으면 단이 많을수록 그 경로가 길어져 타이밍을 맞추기 어렵습니다. <code>ready</code>를 레지스터로 끊으면 처리량이 반으로 떨어지고요. 해법은 엔트리 두 개짜리 <span class="term">스키드 버퍼(skid buffer)</span>입니다.</p>
+
+<div class="widget wide" id="w-pipe" data-title="파이프라인 백프레셔: 조합 ready · 레지스터 ready · 스키드 버퍼">
+  <div class="foot">생산자는 항상 데이터를 보내려 하고, 소비자는 매 사이클 확률 p로 ready를 올립니다. 각 칸은 파이프라인 단의 저장 공간이며 숫자는 데이터 번호입니다. "ready 조합 경로"는 ready 신호가 레지스터 없이 통과하는 단의 수로, 클록 주기를 제한합니다.</div>
+</div>
+
+<h2 id="metastability">메타안정성</h2>
+<p>플립플롭은 클록 에지 전후의 짧은 창(셋업/홀드 시간) 동안 입력이 안정적이어야 합니다. 다른 클록 도메인에서 온 신호는 언제든 바뀔 수 있으므로 이 창을 피할 수 없습니다. 창 안에서 바뀌면 플립플롭 출력은 0도 1도 아닌 중간 전압에 잠시 머무는 <span class="term">메타안정(metastable)</span> 상태가 되고, 결국 0이나 1로 떨어지기까지 걸리는 시간은 확률적입니다. 마치 언덕 꼭대기에 놓인 공과 같습니다.</p>
+<div class="formula">$$P(t_{res} > t) \propto e^{-t/\tau}, \qquad \text{MTBF} = \frac{e^{\,t_r/\tau}}{T_w\cdot f_{clk}\cdot f_{data}}$$
+<span class="caption">\(\tau\): 플립플롭의 재생 시간 상수, \(T_w\): 메타안정 창, \(t_r\): 해소에 허용된 시간(동기화기 단 수에 비례)</span></div>
+
+<div class="widget wide" id="w-meta" data-title="메타안정성: 언덕 위의 공과 MTBF 계산기">
+  <div class="foot">왼쪽: 클록 에지에 입력이 얼마나 가까이 바뀌었는지(언덕 꼭대기에서의 거리)에 따라 공이 굴러떨어지는 시간이 달라집니다. 가운데: 무작위 샘플 2,000개의 해소 시간 분포(로그 스케일). 오른쪽: 동기화 플립플롭 단 수에 따른 MTBF. 매개변수 값은 교육용 예시입니다.</div>
+</div>
+
+<h2 id="sync">동기화기와 비동기 FIFO</h2>
+<p>단일 비트 신호는 플립플롭 두세 개를 직렬로 놓은 <span class="term">동기화기(synchronizer)</span>로 넘깁니다. 첫 플립플롭이 메타안정이 되어도 다음 단까지 한 주기 동안 해소될 시간을 벌어 줍니다. 하지만 <b>여러 비트를 각각 동기화하면 안 됩니다.</b> 비트마다 해소 결과가 달라 엉뚱한 값이 섞일 수 있기 때문입니다. 여러 비트 데이터는 <span class="term">비동기 FIFO</span>로 넘기고, FIFO의 읽기/쓰기 포인터는 한 번에 한 비트만 바뀌는 <b>그레이 코드</b>로 바꿔서 동기화합니다.</p>
+
+<div class="widget wide" id="w-afifo" data-title="비동기 FIFO: 그레이 코드 포인터로 클록 도메인 건너기">
+  <div class="foot">쓰기 측과 읽기 측은 서로 다른 클록으로 동작합니다. 각 측은 상대편 포인터를 2단 동기화기를 거쳐(그래서 몇 사이클 늦게) 보고 full/empty를 판단하므로 보수적이지만 안전합니다. 아래 "전이 중 샘플링" 실험은 포인터가 바뀌는 순간 다른 도메인이 비트별로 무작위 값을 잡을 때 나올 수 있는 값을 보여줍니다.</div>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>valid와 ready가 같은 에지에서 모두 1일 때 전송된다. valid는 전송 전까지 내릴 수 없다.</li>
+    <li>ready를 조합으로 이으면 경로가 길어지고, 단순히 레지스터로 끊으면 처리량이 반이 된다. 스키드 버퍼가 둘 다 해결한다.</li>
+    <li>메타안정 해소 시간은 지수 분포를 따르며, 동기화 단을 하나 늘릴 때마다 MTBF가 \(e^{T_{clk}/\tau}\)배 늘어난다.</li>
+    <li>여러 비트는 개별 동기화 대신 그레이 코드 포인터를 쓰는 비동기 FIFO로 넘긴다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="2">
+  <div class="q">3비트 이진 카운터가 3(011)에서 4(100)로 바뀌는 순간 다른 클록 도메인이 각 비트를 독립적으로 잡으면, 나올 수 있는 값은?</div>
+  <div class="opts">
+    <button class="opt">3 또는 4만</button>
+    <button class="opt">3, 4, 7</button>
+    <button class="opt">0부터 7까지 모든 값</button>
+  </div>
+  <div class="exp">세 비트가 모두 바뀌므로 비트마다 옛 값/새 값이 섞이면 000~111 여덟 가지가 모두 가능합니다. 그레이 코드(010 → 110)는 한 비트만 바뀌어 옛 값 또는 새 값만 나옵니다.</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">τ = 20 ps, 클록 1 GHz일 때 동기화 단을 하나 더 추가하면 MTBF는 대략 몇 배가 될까?</div>
+  <div class="opts">
+    <button class="opt">\(e^{1000/20} = e^{50} \approx 5\times10^{21}\)배</button>
+    <button class="opt">2배</button>
+    <button class="opt">50배</button>
+  </div>
+  <div class="exp">해소 허용 시간이 한 주기(1000 ps) 늘어나므로 MTBF는 \(e^{1000/20}\)배 늘어납니다. 그래서 2~3단이면 사실상 무한대가 됩니다. 단, 그만큼 지연이 늘어납니다.</div>
+</div>
+
+</article>

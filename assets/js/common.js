@@ -4,7 +4,9 @@
 (function () {
   'use strict';
 
-  const CHAPTERS = [
+  // A page may define window.NB_BOOK = {name, tagline, logo, chapters, storeKey} before loading this file
+  const BOOK = window.NB_BOOK || {};
+  const CHAPTERS = BOOK.chapters || [
     { file: 'index.html', num: '', title: '표지', short: '표지' },
     { file: '01-intro.html', num: '01', title: '왜 Network-on-Chip인가', desc: '버스에서 네트워크로: 멀티코어 시대의 통신 문제' },
     { file: '02-topology.html', num: '02', title: '토폴로지', desc: 'Ring, Mesh, Torus, Butterfly, Fat-tree — 연결의 모양' },
@@ -20,6 +22,8 @@
 
   const NB = (window.NB = {});
   NB.CHAPTERS = CHAPTERS;
+  NB.BOOK = BOOK;
+  const BOOK_NAME = BOOK.name || 'NoC Book', BOOK_TAG = BOOK.tagline || '인터랙티브 Network-on-Chip 교과서';
 
   /* ---------------- DOM helpers ---------------- */
   NB.$ = (s, r = document) => r.querySelector(s);
@@ -88,7 +92,7 @@
   const LOGO = '<svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" fill="var(--accent)"/>' +
     '<g stroke="#fff" stroke-width="1.6" opacity=".85"><path d="M9 9H23M9 16H23M9 23H23M9 9V23M16 9V23M23 9V23"/></g>' +
     '<g fill="#fff"><circle cx="9" cy="9" r="2.6"/><circle cx="16" cy="9" r="2.6"/><circle cx="23" cy="9" r="2.6"/><circle cx="9" cy="16" r="2.6"/><circle cx="16" cy="16" r="2.6"/><circle cx="23" cy="16" r="2.6"/><circle cx="9" cy="23" r="2.6"/><circle cx="16" cy="23" r="2.6"/><circle cx="23" cy="23" r="2.6"/></g></svg>';
-  NB.LOGO = LOGO;
+  NB.LOGO = BOOK.logo || LOGO;
 
   function currentFile() {
     let f = location.pathname.split('/').pop();
@@ -100,7 +104,7 @@
     const h = NB.el('header', { class: 'site-header' });
     h.innerHTML =
       '<button class="icon-btn menu-btn" aria-label="목차 열기">☰</button>' +
-      '<a class="brand" href="index.html">' + LOGO + '<span>NoC Book <small>인터랙티브 Network-on-Chip 교과서</small></span></a>' +
+      '<a class="brand" href="index.html">' + NB.LOGO + '<span>' + BOOK_NAME + ' <small>' + BOOK_TAG + '</small></span></a>' +
       '<div class="header-spacer"></div>' +
       '<button class="icon-btn theme-btn" aria-label="다크 모드 전환" title="테마 전환">◐</button>';
     document.body.prepend(h);
@@ -454,9 +458,9 @@
       if (state.logY && !(y0 > 0)) y0 = y1 > 0 ? y1 / 1000 : 0.01;
       if (state.logY && !(y1 > y0)) y1 = y0 * 10;
       const fx = state.logX ? (v) => Math.log10(v) : (v) => v;
-      const fy = state.logY ? (v) => Math.log10(Math.max(v, 1e-12)) : (v) => v;
+      const fy = state.logY ? (v) => Math.log10(Math.max(v, 1e-300)) : (v) => v;
       const X = (v) => pad.l + (fx(v) - fx(x0)) / (fx(x1) - fx(x0)) * (w - pad.l - pad.r);
-      const Y = (v) => h - pad.b - (fy(Math.min(v, y1 * 10)) - fy(y0)) / (fy(y1) - fy(y0)) * (h - pad.t - pad.b);
+      const Y = (v) => h - pad.b - (fy(Math.max(Math.min(v, y1 * 10), state.logY ? y0 / 1000 : -1e300)) - fy(y0)) / (fy(y1) - fy(y0)) * (h - pad.t - pad.b);
       const text = NB.css('--text-mute'), grid = NB.css('--grid');
       ctx.font = '12px ' + NB.css('--font');
       ctx.lineWidth = 1;
@@ -532,20 +536,26 @@
     function logTicks(lo, hi) {
       const out = [];
       if (!(lo > 0) || !isFinite(hi)) return out;
-      for (let e = Math.floor(Math.log10(lo)); e <= Math.ceil(Math.log10(hi)) && out.length < 60; e++) {
-        [1, 2, 5].forEach((m) => { const v = m * Math.pow(10, e); if (v >= lo * 0.999 && v <= hi * 1.001) out.push(v); });
+      const e0 = Math.floor(Math.log10(lo)), e1 = Math.ceil(Math.log10(hi)), dec = e1 - e0;
+      const stepE = dec > 12 ? 3 : dec > 6 ? 2 : 1;
+      const mult = dec > 4 ? [1] : [1, 2, 5];
+      for (let e = e0; e <= e1 && out.length < 60; e++) {
+        if ((e - e0) % stepE) continue;
+        mult.forEach((m) => { const v = m * Math.pow(10, e); if (v >= lo * 0.999 && v <= hi * 1.001) out.push(v); });
       }
       return out;
     }
     function fmtTick(v, precise) {
       if (state.yFmt && precise) return state.yFmt(v);
       const a = Math.abs(v);
+      if (a >= 1e9) { const e = Math.floor(Math.log10(a)), m = v / Math.pow(10, e); return (Math.abs(m - 1) < 1e-6 ? '' : +m.toPrecision(2) + '×') + '1e' + e; }
       if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
       if (a >= 1e4) return (v / 1e3).toFixed(0) + 'k';
       if (a >= 100) return v.toFixed(0);
       if (a >= 10) return precise ? v.toFixed(1) : v.toFixed(0);
       if (a >= 1) return precise ? v.toFixed(2) : String(+v.toFixed(2));
       if (a === 0) return '0';
+      if (a < 1e-3) { const e = Math.floor(Math.log10(a)), m = v / Math.pow(10, e); return (Math.abs(m - 1) < 1e-6 && !precise ? '' : (precise ? m.toFixed(2) : +m.toPrecision(2)) + '×') + '1e' + e; }
       return precise ? v.toPrecision(3) : String(+v.toPrecision(2));
     }
     cv.draw = draw;
@@ -576,6 +586,6 @@
     else window.addEventListener('load', renderMath);
     const y = new Date().getFullYear();
     const foot = NB.$('.site-footer');
-    if (foot && !foot.textContent.trim()) foot.innerHTML = 'NoC Book · 인터랙티브 Network-on-Chip 교과서 · ' + y + ' · 정적 HTML + Canvas로 제작되어 GitHub Pages에서 동작합니다.';
+    if (foot && !foot.textContent.trim()) foot.innerHTML = BOOK_NAME + ' · ' + BOOK_TAG + ' · ' + y + ' · 정적 HTML + Canvas로 제작되어 GitHub Pages에서 동작합니다.';
   });
 })();

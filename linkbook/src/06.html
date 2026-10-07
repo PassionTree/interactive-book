@@ -1,0 +1,76 @@
+<article class="article" data-chapter="6">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 06</div>
+  <h1>클로킹, 지터, CDR</h1>
+  <p class="lead">수신기는 "언제" 샘플링할지를 알아야 합니다. 비트 하나가 30 ps밖에 안 되는 링크에서, 송신기와 수신기의 클록은 서로 다른 수정 발진기에서 나오고 수 ppm씩 어긋나 있습니다. 이 장에서는 클록을 전달하는 방법, 타이밍 오차인 지터, 그리고 데이터에서 클록을 되살리는 CDR을 다룹니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 35분</span><span class="pill">🧪 실험 3개</span></div>
+</header>
+
+<h2 id="arch">클록을 어떻게 전달할까</h2>
+<p>링크의 클로킹 방식은 크게 세 가지입니다. 아래에서 각 방식을 선택해 보세요.</p>
+<div class="widget wide" id="w-arch" data-title="클로킹 방식 비교: 공통 클록 · 소스 동기 · 임베디드 클록">
+  <div class="foot">실제 인터페이스는 이들을 섞어 씁니다. 예를 들어 PCIe는 임베디드 클록 + CDR이지만 시스템에 따라 공통 기준 클록(Refclk)을 공유하기도 하고, DDR은 데이터 스트로브(DQS)로 소스 동기 클로킹을 하며, UCIe 같은 다이-투-다이 링크는 클록 포워딩을 씁니다.</div>
+</div>
+
+<h2 id="jitter">지터: 타이밍의 노이즈</h2>
+<p><span class="term">지터(jitter)</span>는 신호 에지가 이상적인 시각에서 벗어난 정도입니다. 지터는 성격에 따라 나뉩니다.</p>
+<ul>
+  <li><b>랜덤 지터(RJ)</b> — 열잡음 등에서 오는 가우시안 분포. 꼬리가 무한히 이어지므로 rms(σ)로 표시하고, 목표 BER에 따라 피크값이 커집니다.</li>
+  <li><b>결정적 지터(DJ)</b> — 범위가 유한한 지터. ISI로 인한 데이터 의존 지터(DDJ), 듀티 사이클 왜곡(DCD), 전원 노이즈 등에서 오는 주기적 지터(PJ/SJ), 크로스토크 등이 있습니다.</li>
+</ul>
+<p>널리 쓰이는 <span class="term">듀얼 디랙(dual-Dirac) 모델</span>은 DJ를 \(\pm DJ/2\)에 있는 두 개의 임펄스로, RJ를 가우시안으로 근사합니다. 그러면 목표 BER에서의 총 지터는</p>
+<div class="formula">$$TJ(\text{BER}) = DJ_{\delta\delta} + 2\,Q(\text{BER})\cdot \sigma_{RJ}, \qquad Q(10^{-12}) \approx 7.03$$
+<span class="caption">BER = 1e-12에서 RJ 1 mUI rms는 약 14 mUI의 피크-피크 지터에 해당합니다</span></div>
+
+<div class="widget wide" id="w-jit" data-title="지터 히스토그램과 배스텁(bathtub) 곡선">
+  <div class="foot">왼쪽: 에지 위치(TIE)의 분포. 듀얼 디랙 DJ 위에 가우시안 RJ가 얹힌 모양입니다. 오른쪽: 샘플링 위치에 따른 BER(배스텁 곡선). 양쪽 에지 분포의 꼬리가 샘플링 위치를 넘어올 확률로 계산하며, 목표 BER 선과 만나는 두 점 사이가 그 BER에서의 아이 폭입니다.</div>
+</div>
+
+<h2 id="cdr">클록·데이터 복원 (CDR)</h2>
+<p>임베디드 클록 링크의 수신기는 데이터 전이에서 타이밍 정보를 뽑아 샘플링 클록의 위상을 계속 조정합니다. 가장 흔한 구조가 <span class="term">뱅뱅(bang-bang) CDR</span>입니다. 각 비트의 중앙(데이터 샘플)과 경계(에지 샘플)를 함께 샘플링하는 <b>Alexander 위상 검출기</b>는, 전이가 있을 때 에지 샘플이 앞 비트와 같은지 뒤 비트와 같은지를 보고 "클록이 이르다/늦다"만 알려 줍니다. 루프 필터가 이 ±1 신호를 누적해 위상 보간기(PI)나 VCO를 조정합니다.</p>
+<ul>
+  <li><b>비례 경로 \(K_p\)</b> — 매 판정마다 위상을 조금씩 즉시 움직임. 크면 빨리 추적하지만 정상 상태에서도 ±\(K_p\)로 흔들리는 <b>디더링 지터</b>가 커집니다.</li>
+  <li><b>적분 경로 \(K_i\)</b> — 주파수 오차(ppm)를 기억해 꾸준히 위상을 회전시킴. 송수신 클록 주파수 차이를 따라가려면 필요합니다.</li>
+</ul>
+
+<div class="widget wide" id="w-cdr" data-title="뱅뱅 CDR 시뮬레이터: 위상 추적과 락">
+  <div class="foot">시간은 비트 단위, 위상은 UI 단위입니다. 입력 위상(파랑)은 주파수 오차(ppm)로 인한 기울기, 사인 지터(SJ), 랜덤 지터(RJ)를 합친 것이고, CDR 샘플링 위상(주황)이 이를 따라갑니다. 데이터 전이는 50% 확률로 있으며 전이가 없으면 위상 검출기 출력은 0입니다. 위상 오차가 ±0.35 UI를 넘으면(나머지는 ISI·노이즈 마진으로 가정) 비트 오류로 셉니다.</div>
+</div>
+
+<div class="callout note">
+  <div class="callout-title">ℹ️ 지터 전달과 지터 허용</div>
+  <p>CDR은 대역폭보다 느린 지터(예: 저주파 SJ, SSC)는 따라가고, 빠른 지터는 따라가지 못합니다. 그래서 수신기의 <b>지터 허용(jitter tolerance)</b> 곡선은 저주파에서 매우 크고(수 UI), CDR 대역폭 위에서는 아이 폭 정도로 떨어집니다. 시뮬레이터에서 SJ 주파수를 바꿔 가며 같은 진폭에서 오류가 언제 나기 시작하는지 확인해 보세요.</p>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>클로킹은 공통 클록, 소스 동기(클록 포워딩), 임베디드 클록(CDR)으로 나뉜다.</li>
+    <li>지터는 무한한 꼬리의 RJ와 유한한 DJ로 나뉘며, 총 지터는 목표 BER에 따라 \(DJ + 2Q\sigma\)로 커진다.</li>
+    <li>배스텁 곡선은 샘플링 위치별 BER을 보여주며, 목표 BER에서의 아이 폭을 정의한다.</li>
+    <li>뱅뱅 CDR은 비례 경로로 위상을, 적분 경로로 주파수 오차를 추적한다. 이득은 추적 속도와 디더링 지터의 균형이다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="2">
+  <div class="q">RJ = 10 mUI rms, DJ = 0.2 UI일 때 BER 1e-12에서의 총 지터(TJ)는 대략?</div>
+  <div class="opts">
+    <button class="opt">0.21 UI</button>
+    <button class="opt">0.27 UI</button>
+    <button class="opt">0.34 UI</button>
+  </div>
+  <div class="exp">\(TJ = 0.2 + 2\times 7.03\times 0.01 \approx 0.34\) UI. 남은 아이 폭은 약 0.66 UI입니다. 배스텁 실험에서 같은 값을 넣어 확인하세요.</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">송수신 클록 사이에 300 ppm 주파수 차이가 있는데 CDR에 적분 경로가 없다면?</div>
+  <div class="opts">
+    <button class="opt">비례 경로만으로 위상을 계속 따라가야 하므로 평균 위상 오차가 남거나, Kp가 작으면 추적에 실패한다.</button>
+    <button class="opt">문제없다. 뱅뱅 CDR은 주파수 차이를 자동으로 무시한다.</button>
+    <button class="opt">적분 경로는 지터를 늘리기만 하므로 없는 편이 낫다.</button>
+  </div>
+  <div class="exp">300 ppm이면 1비트당 0.0003 UI씩 위상이 밀립니다. 비례 경로만으로는 그만큼을 매번 "이르다/늦다" 판정의 불균형으로 메워야 해서 위상 오차가 한쪽으로 치우칩니다. Kp가 0.0003×전이확률보다 작으면 아예 따라가지 못합니다. 시뮬레이터에서 Ki를 0으로 두고 ppm을 키워 보세요.</div>
+</div>
+
+</article>

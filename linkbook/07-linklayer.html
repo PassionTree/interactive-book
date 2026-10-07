@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07. 링크 계층: 오류와 재전송 — LinkBook</title>
+<meta name="description" content="BER과 SNR, CRC 오류 검출, 해밍 코드 오류 정정, ACK/NAK Go-Back-N 재전송을 실험합니다.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="assets/css/link.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="main">
+<article class="article" data-chapter="7">
+
+<header class="chapter-head">
+  <div class="chapter-kicker">Chapter 07</div>
+  <h1>링크 계층: 오류와 재전송</h1>
+  <p class="lead">아무리 잘 설계해도 물리 계층은 가끔 틀립니다. 32 Gb/s 링크에서 BER 10⁻¹²는 "평균 30초마다 비트 하나가 틀린다"는 뜻입니다. 링크 계층은 오류를 <b>검출</b>하고(CRC), 때로는 <b>정정</b>하며(FEC/ECC), 정정할 수 없으면 <b>다시 보내서</b>(재전송) 상위 계층에 완벽한 데이터 흐름을 제공합니다.</p>
+  <div class="chapter-meta"><span class="pill">⏱ 약 35분</span><span class="pill">🧪 실험 4개</span></div>
+</header>
+
+<h2 id="ber">BER과 SNR</h2>
+<p>수신기 샘플에 가우시안 노이즈(표준편차 \(\sigma\))가 섞여 있고, 아이의 절반 높이가 \(A\)라면 NRZ의 비트 오류율은</p>
+<div class="formula">$$\text{BER} = Q\!\left(\frac{A}{\sigma}\right) = \tfrac12\,\mathrm{erfc}\!\left(\frac{A}{\sqrt2\,\sigma}\right)$$
+<span class="caption">\(Q(7.03)\approx10^{-12}\): 아이 절반 높이가 노이즈 rms의 약 7배여야 한다</span></div>
+<p>Q 함수는 매우 가파릅니다. SNR이 1 dB만 좋아져도 BER이 몇 자릿수씩 바뀝니다. 그래서 링크 설계는 "몇 dB의 마진이 남았는가"로 이야기합니다.</p>
+
+<div class="widget" id="w-ber" data-title="BER 계산기: 마진 1 dB의 무게">
+  <div class="foot">PAM4는 같은 전체 스윙에서 레벨 간격이 1/3이고 그레이 코딩을 가정해 BER ≈ (3/4)·Q(A/3σ)로 근사했습니다. 점은 현재 설정입니다.</div>
+</div>
+
+<h2 id="crc">CRC: 오류 검출</h2>
+<p><span class="term">CRC(Cyclic Redundancy Check)</span>는 메시지 비트열을 다항식으로 보고, 생성 다항식 \(G(x)\)로 나눈 나머지를 메시지 뒤에 붙입니다. 수신 측은 같은 나눗셈을 해서 나머지가 0이 아니면 오류로 판정합니다. 하드웨어로는 몇 개의 XOR 게이트가 달린 시프트 레지스터(LFSR)면 됩니다. 잘 고른 \(n\)비트 CRC는 길이 \(n\) 이하의 모든 연속(burst) 오류를 잡고, 그 밖의 무작위 오류도 약 \(1-2^{-n}\)의 확률로 잡습니다.</p>
+
+<div class="widget wide" id="w-crc" data-title="CRC-8 계산기 & 오류 주입기">
+  <div class="foot">생성 다항식 \(x^8+x^2+x+1\)(0x07)의 CRC-8입니다. 이 다항식은 \((x+1)\)을 인수로 가져 홀수 개의 비트 오류를 모두 검출합니다. 프레임의 비트를 클릭해 오류를 넣어 보세요. 아래 몬테카를로 버튼은 k개의 무작위 비트 오류를 20,000번 넣어 검출하지 못한 비율을 셉니다.</div>
+</div>
+
+<h2 id="ecc">ECC: 오류 정정</h2>
+<p>재전송은 지연이 크고 송신 측 버퍼가 필요합니다. 그래서 고속 링크와 메모리는 <span class="term">순방향 오류 정정(FEC)</span>을 씁니다. 가장 단순한 예가 <b>해밍(7,4) 코드</b>입니다. 4개 데이터 비트에 3개 패리티 비트를 붙여, 어느 비트 하나가 뒤집혀도 위치를 찾아 고칩니다. 실제 시스템은 훨씬 강력한 코드를 씁니다. DRAM은 SECDED(64+8), 400G 이더넷과 PCIe 6.0은 리드-솔로몬(RS) 계열 FEC를 씁니다.</p>
+
+<div class="widget wide" id="w-ham" data-title="해밍(7,4) 코드: 벤 다이어그램으로 보는 단일 오류 정정">
+  <div class="foot">세 원은 각각 패리티 비트 p₁, p₂, p₄가 검사하는 비트 묶음입니다. 각 원 안의 1의 개수는 항상 짝수여야 합니다. 코드워드 비트를 클릭해 오류를 넣으면, 짝수 조건이 깨진 원들의 교집합이 오류 위치를 가리킵니다(신드롬). 비트 두 개를 뒤집으면 엉뚱한 비트를 "고치는" 것도 확인해 보세요.</div>
+</div>
+
+<h2 id="retry">재전송: ACK/NAK과 Go-Back-N</h2>
+<p>PCIe의 데이터 링크 계층은 패킷(TLP)마다 시퀀스 번호와 CRC(LCRC)를 붙여 보내고, 사본을 <b>재전송 버퍼(replay buffer)</b>에 둡니다. 수신 측은 올바른 패킷에 ACK, CRC 오류에 NAK을 돌려보내고, 송신 측은 NAK을 받으면 그 번호부터 다시 보냅니다(<span class="term">Go-Back-N</span>). 왕복 지연 동안 보낸 패킷들도 모두 다시 보내야 하므로, 오류율과 왕복 지연이 클수록 효율이 떨어집니다. 재전송 버퍼가 왕복 지연보다 작으면, 오류가 없어도 ACK을 기다리느라 링크가 멈춥니다.</p>
+
+<div class="widget wide" id="w-retry" data-title="Go-Back-N 재전송 시뮬레이터">
+  <div class="foot">시간은 위에서 아래로 흐릅니다. 왼쪽이 송신기, 오른쪽이 수신기이며 각 화살표는 패킷 하나(숫자 = 시퀀스 번호)입니다. 빨간 화살표는 CRC 오류로 손상된 패킷, 회색은 오류 뒤에 도착해 버려진 패킷, 보라색은 재전송입니다. 오른쪽에서 왼쪽으로 가는 가는 선이 ACK(초록)/NAK(빨강)입니다. ACK/NAK은 손실되지 않는다고 가정했습니다. 수신기는 정상 패킷을 받을 때까지 NAK을 한 번만 보내므로, 재전송된 패킷까지 손상되면 송신기의 <b>재전송 타이머</b>(왕복 지연 + 여유)가 만료되어 다시 보냅니다.</div>
+</div>
+
+<div class="callout note">
+  <div class="callout-title">ℹ️ 링크 계층 플로우 컨트롤</div>
+  <p>링크 계층은 수신 버퍼가 넘치지 않도록 <b>크레딧 기반 플로우 컨트롤</b>도 담당합니다. PCIe는 패킷 종류별(Posted/Non-posted/Completion, 헤더/데이터) 크레딧을 따로 관리합니다. 원리는 <a href="../04-flow-control.html">NoC Book 4장의 Credit 실험</a>과 같습니다: 버퍼 크기가 크레딧 왕복 지연보다 작으면 링크가 놀게 됩니다.</p>
+</div>
+
+<div class="keypoints">
+  <h3>핵심 정리</h3>
+  <ul>
+    <li>가우시안 노이즈에서 BER = Q(A/σ). SNR 1 dB 차이가 BER을 몇 자릿수 바꾼다.</li>
+    <li>CRC는 시프트 레지스터 몇 개로 버스트 오류와 대부분의 무작위 오류를 검출한다.</li>
+    <li>FEC(해밍, SECDED, RS)는 지연을 조금 늘리는 대신 재전송 없이 오류를 정정한다.</li>
+    <li>Go-Back-N 재전송의 효율은 오류율 × 왕복 지연에 따라 떨어지며, 재전송 버퍼는 왕복 지연 이상이어야 한다.</li>
+  </ul>
+</div>
+
+<h2 id="quiz" class="nonum">확인 문제</h2>
+<div class="quiz" data-answer="1">
+  <div class="q">해밍(7,4) 코드의 신드롬이 (p₄,p₂,p₁) = (1,0,1)이라면 오류 위치는?</div>
+  <div class="opts">
+    <button class="opt">비트 3</button>
+    <button class="opt">비트 5</button>
+    <button class="opt">비트 6</button>
+  </div>
+  <div class="exp">신드롬을 이진수로 읽으면 101₂ = 5. 해밍 코드는 패리티 비트를 2의 거듭제곱 위치(1, 2, 4)에 두어 신드롬이 곧 오류 위치가 되게 설계되었습니다.</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">한 방향 지연이 패킷 10개 시간이고 재전송 버퍼가 패킷 8개라면, 오류가 전혀 없을 때의 링크 효율은?</div>
+  <div class="opts">
+    <button class="opt">약 8/20 = 40% — ACK를 기다리느라 링크가 멈춘다</button>
+    <button class="opt">100%</button>
+    <button class="opt">약 80%</button>
+  </div>
+  <div class="exp">첫 패킷의 ACK가 돌아오기까지 왕복 2×10 = 20 패킷 시간이 걸리는데, 그동안 8개만 보낼 수 있습니다. 버퍼가 왕복 지연(20) 이상이어야 오류가 없을 때 100% 효율이 됩니다. 시뮬레이터에서 지연 10, 버퍼 8, 오류율 0으로 확인해 보세요.</div>
+</div>
+
+</article>
+
+<footer class="site-footer"></footer>
+</main>
+</div>
+<script src="assets/js/book.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="assets/js/link.js"></script>
+<script src="assets/js/codes.js"></script>
+<script src="assets/js/ch07.js"></script>
+
+</body>
+</html>
